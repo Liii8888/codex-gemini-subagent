@@ -4,19 +4,20 @@ Version: **0.3.0**. Local verification date: **2026-09-06**.
 
 | Check | Result |
 | --- | --- |
-| Full mock-provider test discovery, Python 3.14.6 on macOS | 202 tests passed |
+| Full mock-provider test discovery, Python 3.14.6 on macOS | 205 tests passed |
 | Official local Codex Skill validator | All five skills passed |
 | Official local Codex plugin validator | Passed |
 | Marketplace structure, version consistency, Python syntax, executable entrypoints | Passed |
 | Codex CLI installation into an isolated temporary configuration | Installed and enabled version 0.3.0 |
-| Installed bundle compared with source | All 46 plugin files matched byte for byte |
+| Installed bundle compared with source | All 49 plugin files matched byte for byte |
 | Public distribution review | Source, tests, manifests, license, and documentation only |
 
 The tests execute mock provider processes in temporary runtimes. They cover
 task completion, status, results, cancellation, native-session binding, quota
 policy, account and credential revisions, login recovery, process cleanup,
 shared/exclusive locks, concurrency eligibility, public runtime defaults,
-private stdin prompt transport, and rejection of alternate real-probe locks.
+private stdin prompt transport, rejection of alternate real-probe locks, and production authentication locks
+that remain canonical even when a test environment flag is set.
 They do not read live credentials or require paid model calls.
 
 The install check uses a separate temporary Codex configuration; it does not

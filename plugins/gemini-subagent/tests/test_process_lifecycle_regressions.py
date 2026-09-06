@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child processes
+
 import argparse
 import contextlib
 import fcntl
@@ -207,6 +209,13 @@ import keychain_profiles
 
 keychain_profiles.SECURITY_BINARY = sys.argv[3]
 import gemini_subagent as bridge
+
+# This fixture injects a synthetic security executable. Preserve its isolated
+# root explicitly while exercising the production subprocess timeout logic.
+isolated_auth_root = bridge.canonical_auth_root()
+bridge.canonical_auth_runtime_root = lambda: isolated_auth_root
+import os
+os.environ.pop("GEMINI_SUBAGENT_TESTING", None)
 
 raise SystemExit(bridge.worker_main(sys.argv[2]))
 """

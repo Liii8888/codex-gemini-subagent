@@ -16,6 +16,8 @@ First public distribution of Gemini Subagent for Codex.
   discovery and provider-readiness acceptance.
 - Send managed task prompts through stdin rather than process arguments.
 - Require the canonical per-user Keychain lock in the real concurrency probe.
+- Remove the production test-lock override and block real macOS Keychain
+  transport in test mode; mock isolation is injected only by the test harness.
 - Retain managed jobs, native session continuation, official CLI quota handling,
   account isolation, crash recovery, cancellation, and opt-in shared reads.
 

@@ -55,6 +55,10 @@ Do not use another account switcher, unmanaged `agy`, or the Antigravity IDE
 while the managed adapter owns the slot. Alternate job runtimes cannot create
 an independent authentication lock. The real concurrency probe also requires
 that canonical lock and rejects a different `--lock-path` before side effects.
+`GEMINI_SUBAGENT_TESTING=1` cannot change the production authentication lock
+domain, and it blocks the real macOS Keychain transport before any subprocess
+starts. Mock runtime isolation is injected by the test harness only. Do not add
+`tests/support` to the module search path when using real provider accounts.
 
 ## Defaults and limits
 

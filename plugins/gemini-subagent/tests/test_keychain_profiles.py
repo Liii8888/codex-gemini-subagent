@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child processes
+
 import base64
 import fcntl
 import importlib.util
@@ -387,6 +389,35 @@ class KeychainProfileTests(unittest.TestCase):
                 ) as caught:
                     access.read(item)
                 self.assertNotIn("must-not-leak", str(caught.exception))
+
+    def test_test_auth_domain_cannot_reach_real_keychain_transport(self):
+        access = keychain_profiles.SafeMacOSKeychainAccess()
+        operations = (
+            lambda: access.read(ACTIVE),
+            lambda: access.write(ACTIVE, bytearray(record("synthetic-only"))),
+            lambda: access.delete(ACTIVE),
+        )
+        with mock.patch.dict(os.environ, {"GEMINI_SUBAGENT_TESTING": "1"}):
+            with mock.patch.object(subprocess, "Popen") as spawn:
+                for index, operation in enumerate(operations):
+                    with self.subTest(operation=index):
+                        with self.assertRaisesRegex(
+                            keychain_profiles.KeychainUnavailableError, "test mode"
+                        ):
+                            operation()
+                spawn.assert_not_called()
+
+    def test_test_auth_domain_allows_injected_fake_keychain_transport(self):
+        opaque = record("synthetic-only")
+        runner = FakeRunner([keychain_profiles.CommandResult(0, opaque)])
+        access = keychain_profiles.SafeMacOSKeychainAccess(runner=runner)
+        with mock.patch.dict(os.environ, {"GEMINI_SUBAGENT_TESTING": "1"}):
+            with mock.patch.object(subprocess, "Popen") as spawn:
+                self.assertEqual(access.read(ACTIVE), bytearray(opaque))
+                access.write(ACTIVE, bytearray(opaque))
+                self.assertTrue(access.delete(ACTIVE))
+                spawn.assert_not_called()
+        self.assertEqual(len(runner.calls), 3)
 
     def test_security_timeout_drops_captured_output_from_exception_chain(self):
         secret = record("captured-timeout-secret")

@@ -332,6 +332,11 @@ class SubprocessCommandRunner:
         args = tuple(argv)
         if not args or args[0] != SECURITY_BINARY:
             raise KeychainProfileError("Refusing to run a non-security command.")
+        if os.environ.get("GEMINI_SUBAGENT_TESTING") == "1":
+            raise KeychainUnavailableError(
+                "Real macOS Keychain access is disabled in test mode. "
+                "Inject a fake Keychain transport for tests."
+            )
         io_options = (
             {
                 "stdin": subprocess.PIPE,

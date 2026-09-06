@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+import subprocess
 import sys
 import tempfile
 import types
@@ -18,6 +20,30 @@ import runtime_paths
 
 
 class PublicDefaultsTests(unittest.TestCase):
+    def test_production_auth_lock_ignores_test_flag_and_runtime_overrides(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve()
+            code = """
+import json, os, sys, types
+sys.path.insert(0, sys.argv[1])
+import gemini_subagent as bridge
+import runtime_paths
+runtime_paths.pwd.getpwuid = lambda uid: types.SimpleNamespace(pw_dir=sys.argv[2])
+locks = []
+for testing in ('0', '1'):
+    os.environ['GEMINI_SUBAGENT_TESTING'] = testing
+    for name in ('jobs-a', 'jobs-b'):
+        os.environ['GEMINI_SUBAGENT_RUNTIME_ROOT'] = str(__import__('pathlib').Path(sys.argv[2]) / name)
+        locks.append(str(bridge.auth_lock_path()))
+print(json.dumps(locks))
+"""
+            result = subprocess.run(
+                [sys.executable, "-I", "-c", code, str(SCRIPTS), str(home)],
+                text=True, capture_output=True, check=True, timeout=10,
+            )
+            expected = runtime_paths.default_runtime_root(home) / ".antigravity-keychain.lock"
+            self.assertEqual(json.loads(result.stdout), [str(expected)] * 4)
+
     def test_fresh_mac_uses_user_application_support_without_creating_files(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve()

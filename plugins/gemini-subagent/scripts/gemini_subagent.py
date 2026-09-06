@@ -518,10 +518,7 @@ def state_lock() -> Iterable[None]:
 def canonical_auth_root() -> Path:
     """Return the one per-UID auth domain, independent of runtime overrides."""
 
-    if os.environ.get("GEMINI_SUBAGENT_TESTING") == "1":
-        root = runtime_root() / "test-auth-domain"
-    else:
-        root = canonical_auth_runtime_root()
+    root = canonical_auth_runtime_root()
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with contextlib.suppress(PermissionError):
         root.chmod(0o700)
