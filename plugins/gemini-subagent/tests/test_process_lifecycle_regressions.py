@@ -732,6 +732,13 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
         provider: subprocess.Popen[str] | None = None
         provider_child: subprocess.Popen[str] | None = None
         provider_child_pid: int | None = None
+        # Establish the group inside a fresh interpreter before exec. Popen's
+        # process_group argument only exists in Python 3.11+, and preexec_fn
+        # is unsafe in this test's multithreaded parent.
+        group_launcher = (
+            "import os,sys;os.setpgid(0,int(sys.argv[1]));"
+            "os.execv(sys.executable,[sys.executable,*sys.argv[2:]])"
+        )
         worker_reaper = threading.Thread(target=worker.wait, daemon=True)
         provider_reaper: threading.Thread | None = None
         real_patch_job = gemini_subagent.patch_job
@@ -753,6 +760,9 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
                 [
                     sys.executable,
                     "-c",
+                    group_launcher,
+                    "0",
+                    "-c",
                     leader_code,
                     str(leader_ready),
                     str(leader_term_seen),
@@ -760,8 +770,9 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                process_group=0,
             )
+            self.assertTrue(wait_until(leader_ready.is_file, timeout=3),
+                            "late provider leader did not create its process group")
             # A direct child in the provider leader's PGID models the exact
             # cleanup contract while keeping the test process able to reap it
             # after the group leader exits.  Both are real OS processes; only
@@ -770,6 +781,9 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
                 [
                     sys.executable,
                     "-c",
+                    group_launcher,
+                    str(provider.pid),
+                    "-c",
                     child_code,
                     str(provider_ready),
                     str(child_term_seen),
@@ -777,7 +791,6 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                process_group=provider.pid,
             )
 
             def provider_pid_is_published() -> bool:

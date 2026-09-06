@@ -104,6 +104,14 @@ parses the PowerShell validation script. `windows-latest` may be Windows Server;
 a green runner there is useful portability evidence, not Windows 11 desktop
 acceptance. Inspect the exact commit's Actions result and recorded image; configuration alone is not proof.
 
+`tools/run_ci_tests.py` runs the same discovery. On hosted Windows only, it
+temporarily sets the test process token's default object owner to its existing
+user SID, then restores it. Hosted elevated tokens can otherwise create files
+owned by Administrators, which the production ownership checks correctly reject.
+The fixture does not change elevation, ACL checks, accounts, or machine policy,
+and its output explicitly says it is not desktop acceptance. See Microsoft's
+[TOKEN_OWNER contract](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-token_owner).
+
 Validate all five skills with the available Codex Skill validator and the whole
 bundle with the plugin validator. Installation checks, if separately authorized,
 should use an isolated Codex configuration and compare the installed bundle to

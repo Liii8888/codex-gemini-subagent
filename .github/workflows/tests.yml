@@ -35,7 +35,7 @@ jobs:
       - name: Validate distribution
         run: python tools/check_package.py
       - name: Test with mock providers
-        run: python -W error::ResourceWarning -m unittest discover -s plugins/gemini-subagent/tests -v
+        run: python -W error::ResourceWarning tools/run_ci_tests.py
       - name: Parse Windows acceptance tooling
         if: runner.os == 'Windows'
         shell: pwsh

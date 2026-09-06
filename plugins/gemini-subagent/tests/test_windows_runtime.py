@@ -131,7 +131,7 @@ class WindowsRuntimeLifecycleTests(unittest.TestCase):
             time.sleep(0.1)
         self.assertEqual(detail["state"], "running", detail)
         final = self.invoke("cancel", job_id, "--json")
-        self.assertEqual(final["state"], "cancelled")
+        self.assertEqual(final["state"], "cancelled", final)
         self.wait_for(lambda: not platform_process.alive(owned["worker_pid"]))
         self.assertFalse(platform_process.group_alive(owned["worker_pid"]))
 
