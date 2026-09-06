@@ -23,7 +23,7 @@ Run the first `doctor` from the requested project directory. New installations
 allow only that directory and use the current user's Application Support data
 directory on macOS, or the real OS user's
 `%LOCALAPPDATA%\Gemini-Subagent\runtime` on Windows. Windows targets native
-Windows 11 24H2+ x64 with PowerShell; this prerelease has not passed Windows
+Windows 11 23H2+ x64 with PowerShell; this prerelease has not passed Windows
 acceptance. Do not migrate credentials or native sessions across OSes.
 To authorize a larger workspace on first setup, set
 `GEMINI_SUBAGENT_ALLOWED_ROOTS` to its absolute path before running `doctor`.
@@ -39,7 +39,7 @@ See [setup and configuration](../../README.md) for provider onboarding.
    `credential_storage`, `credential_profiles`, `shared_reads`, and
    `desktop_integration`. Lifecycle is available with `pending-native-acceptance`,
    storage is `synthetic-tests-only`, profiles/shared reads are unavailable, and
-   desktop integration is pending. The 23H2 lock/ACL evidence is not 24H2+ acceptance. It initializes private
+   desktop integration is pending. Lock/ACL evidence alone is not complete live acceptance. It initializes private
    state; do not run it against the real runtime for a read-only package check.
 2. Run `account list --json` to inspect profiles.
 3. Run `account verify <name> --json`. An Antigravity profile is strictly ready

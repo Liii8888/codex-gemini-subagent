@@ -5,7 +5,7 @@ repository and set `SUBAGENT` to the absolute path of
 `plugins/gemini-subagent/scripts/gemini_subagent.py`.
 
 **0.4.0-alpha.1 is a prerelease; native Windows acceptance is pending.** The
-adaptation targets Windows 11 24H2+ x64, PowerShell, and native Python 3.10+ x64.
+adaptation targets Windows 11 23H2+ x64, PowerShell, and native Python 3.10+ x64.
 Use official `agy` for a new setup, preserving an existing or requested Gemini
 CLI configuration. Real Windows multi-account switching/shared reads remain
 blocked until the official fixed credential contract has native evidence.
@@ -13,7 +13,8 @@ blocked until the official fixed credential contract has native evidence.
 Read the bundled [platform reference](references/platforms.md). The 23H2 lab
 proved offline native lifecycle and actual Codex-controlled reads/resume, but
 project writes failed, real timeout was not triggered, and first-time official
-login is unproven. Windows 24H2+ release acceptance remains pending.
+login is unproven. Single-account release acceptance remains pending; the
+existing 23H2 client is an accepted test target, and 24H2+ is additional coverage.
 
 The examples below use macOS `python3`. On Windows, obtain `$InstalledPath`
 from the actual Codex installation metadata, resolve `$Python` to a verified
@@ -54,7 +55,7 @@ Inspect `platform` and, on Windows, `capabilities.task_lifecycle`,
 `desktop_integration`. Lifecycle is available with `pending-native-acceptance`;
 storage is `synthetic-tests-only`; profiles/shared reads are unavailable and
 desktop integration is pending. The 23H2 process/lock/ACL evidence does not
-establish 24H2+ acceptance. An exit code alone does not establish readiness.
+establish complete live acceptance. An exit code alone does not establish readiness.
 
 Multiple roots are separated by the OS path separator (`:` on macOS, `;` on Windows). Existing
 configuration is preserved. To add another workspace later, inspect the private

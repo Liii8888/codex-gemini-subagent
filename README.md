@@ -8,7 +8,9 @@ resumes conversations, cancels work, and verifies changes.
 
 This community plugin runs official provider CLIs under your own account.
 **Stable macOS: `v0.3.0`. Windows preview: `v0.4.0-alpha.1`.** Windows 11
-24H2+ x64, PowerShell, and native Python 3.10+ x64 remain the stable target.
+23H2+ x64, PowerShell, and native Python 3.10+ x64 are the stable target.
+The existing 23H2 client may satisfy release acceptance; 24H2+ testing is
+additional coverage, not a prerequisite.
 
 The 23H2 ordinary-user lab passed required offline native tests and demonstrated
 Codex-controlled agy reads and native continuation. **Windows release acceptance
@@ -138,16 +140,16 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 `task_lifecycle`, `credential_storage`, `credential_profiles`, `shared_reads`,
 and `desktop_integration`. Lifecycle is available with `pending-native-acceptance`;
 storage has synthetic coverage, profiles/shared reads are unavailable, and
-desktop integration is pending. The 23H2 process/lock/ACL evidence does not
-establish 24H2+ release acceptance. A new Windows runtime defaults
+desktop integration is pending. Process/lock/ACL evidence alone does not
+establish complete single-account release acceptance. A new Windows runtime defaults
 to the real OS user's `%LOCALAPPDATA%\Gemini-Subagent\runtime`, while macOS uses
 `~/Library/Application Support/Gemini-Subagent/runtime`. Credentials and native
 sessions are not migrated across operating systems.
 
 ## Boundaries and compatibility
 
-- Windows adaptation is experimental. 23H2 compatibility evidence is separate
-  from the pending 24H2+ single-account release gate. Linux is not a release target.
+- Windows adaptation is experimental. The 23H2 client meets the OS requirement;
+  the single-account live release gate remains pending. Linux is not a release target.
 - `read` requests the provider's plan/approval mode and sandbox. It is an intent
   boundary, **not a hard per-tool deny list**.
 - OS credential switching and shared-read concurrency are unofficial compatibility

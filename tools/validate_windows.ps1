@@ -195,6 +195,12 @@ def run_mock_suite():
     return 0 if result.wasSuccessful() else 1
 
 
+def supported_windows_client(version):
+    """The native single-account gate accepts 23H2 clients, never Server CI."""
+    return bool(version and version.major >= 10 and version.build >= 22631
+                and version.product_type == 1)
+
+
 def main():
     root, temporary = Path(sys.argv[1]), Path(sys.argv[2])
     live, shared = sys.argv[3] == "True", sys.argv[4] == "True"
@@ -204,9 +210,7 @@ def main():
     architecture = native_architecture()
     python_bits = struct.calcsize("P") * 8
     prerequisites = {
-        "windows_11_24h2_client_or_newer": bool(
-            windows and windows.major >= 10 and windows.build >= 26100
-            and windows.product_type == 1),
+        "windows_11_23h2_client_or_newer": supported_windows_client(windows),
         "native_x64": native and architecture == "x64",
         "python_310_or_newer_x64": sys.version_info >= (3, 10) and python_bits == 64,
         "powershell_51_or_newer": ps_version[:2] >= [5, 1],

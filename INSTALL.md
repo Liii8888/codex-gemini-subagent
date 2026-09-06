@@ -22,7 +22,7 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
   Windows preview or an explicitly requested macOS preview uses this
   **0.4.0-alpha.1** guide. Never install the macOS-only stable package as a
   Windows fallback.
-  The Windows target is **Windows 11 24H2+ x64, PowerShell, native Python 3.10+
+  The Windows target is **Windows 11 23H2+ x64, PowerShell, native Python 3.10+
   x64**; macOS remains a target. Check OS build/architecture, Python, Git, and
   `codex plugin --help`. WSL and a Windows Server CI pass do not establish
   Windows 11 acceptance. Linux is not a release target.
@@ -112,7 +112,7 @@ provider is usable. Inspect `providers`, account state, `platform`, and Windows
 `shared_reads`, and `desktop_integration`. Lifecycle reports available with
 `pending-native-acceptance`; storage is `synthetic-tests-only`; profiles/shared
 reads are unavailable, and desktop integration awaits native acceptance. The historical 23H2 native
-process/lock/ACL proof does not establish 24H2+ release acceptance.
+process/lock/ACL proof alone does not establish complete single-account release acceptance.
 
 New runtime data uses the macOS user's Application Support directory, or the
 real Windows OS user's `%LOCALAPPDATA%\Gemini-Subagent\runtime`. An alternate

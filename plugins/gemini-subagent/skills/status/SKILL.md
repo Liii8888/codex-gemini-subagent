@@ -56,7 +56,7 @@ normal narrowly scoped host approval; multi-account/shared mode remains disabled
   package checks. `doctor --deep --json` additionally performs a live quota probe
   and requires authorization for provider access.
 
-Windows 11 24H2+ x64 with PowerShell is the prerelease adaptation target;
+Windows 11 23H2+ x64 with PowerShell is the prerelease adaptation target;
 **Windows acceptance is pending**. The runtime belongs in the real user's
 LocalAppData, and native sessions/credentials are not migrated from another OS.
 Synthetic Windows Credential Manager tests do not prove the fixed official

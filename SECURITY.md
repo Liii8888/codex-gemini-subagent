@@ -115,7 +115,7 @@ UUID target. Mock runtime isolation is injected by the test harness only. Do not
 
 The 23H2 lab used a verified ordinary desktop token. Native ACL/lock, ownership,
 crash cleanup, and rollback fixtures passed. That evidence is separate from
-24H2+ release acceptance and from fully sandbox-contained Codex execution: exact
+complete single-account release acceptance and from fully sandbox-contained Codex execution: exact
 one-time host approvals were needed for the observed plugin commands.
 
 Real project writes failed, real timeout was not triggered, and official first

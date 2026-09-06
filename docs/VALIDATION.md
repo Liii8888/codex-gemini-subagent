@@ -1,15 +1,18 @@
 # Release validation
 
 Target version: **0.4.0-alpha.1 (Windows preview)**.
-**Windows stable release acceptance: NOT ACCEPTED.** The stable target remains
-Windows 11 24H2+ x64, PowerShell, and native Python 3.10+ x64. The preview has
-23H2 compatibility evidence; it does not establish full provider parity.
+**Windows stable release acceptance: NOT ACCEPTED.** The stable target is
+Windows 11 23H2+ x64, PowerShell, and native Python 3.10+ x64. A native 23H2
+client is sufficient for the single-account release gate. Testing 24H2+ is
+additional coverage, not a release prerequisite. The target was revised on
+2026-09-07; this changes the required environment, not the result of any test.
+Existing preview evidence does not establish full provider parity.
 
 ## Current implementation and evidence boundary
 
 | Surface | Implemented and observed | Remaining boundary |
 | --- | --- | --- |
-| Native task lifecycle | Windows Job Objects, native locks/private ACLs, SID/Session/logon-LUID ownership; required 23H2 offline checks passed | Repeat on the final supported 24H2+ client environment; real provider deadline still unproven |
+| Native task lifecycle | Windows Job Objects, native locks/private ACLs, SID/Session/logon-LUID ownership; required 23H2 offline checks passed | Bind final-source checks to the tested Windows 11 client; real provider deadline still unproven |
 | Official single-account agy | 1.1.27 models/structured usage, reads, native continuation, and cancel during initialization observed | Project writes failed; first-time official login and real timeout unproven |
 | Codex CLI | 0.153.4 / gpt-5.6-luna discovered five installed skills and invoked start/status/wait/result | Exact one-time host approvals were required; not approval-free sandbox execution or desktop App acceptance |
 | Credential profiles | Synthetic native storage tested, including same-logon cleanup after failure | Real Windows profiles reject before metadata writes; fixed provider target/shape/refresh/ownership not release-proven |
@@ -168,8 +171,9 @@ original context for cancellation; cross-session control is not enabled.
 Keep baseline, source hashes, installation receipts, per-case results,
 rollback previews, and retention lists outside the public repository. Bind
 final Mac regression, native results, and installed content to one source
-manifest. A 23H2 lab run is compatibility evidence only; the standalone
-24H2+ gate and release acceptance requirements below remain unchanged.
+manifest. A 23H2 lab run can satisfy the operating-system requirement. Offline
+success alone does not satisfy the official-login and real-task requirements
+below; the lab's historical `23H2_COMPATIBILITY_ONLY` output is not a release verdict.
 
 ## Standalone Windows report
 
@@ -222,12 +226,13 @@ restriction and use already-authorized offline commands; do not weaken policy.
 
 ## Native Windows live gate
 
-The **0.4 single-account CLI stable gate remains pending**. Existing 23H2
-results are compatibility evidence, not a substitute for 24H2+ acceptance.
+The **0.4 single-account CLI stable gate remains pending**. The existing 23H2
+client can satisfy the OS requirement; remaining login and real-task checks
+must still pass. No 24H2+ machine or operating-system upgrade is required.
 Use the official [Codex Windows guide](https://learn.chatgpt.com/docs/windows/windows-app)
 and [agy installation guide](https://antigravity.google/docs/cli/install).
 
-1. **Target and identity.** Use native Windows 11 24H2+ x64 (client build 26100
+1. **Target and identity.** Use native Windows 11 23H2+ x64 (client build 22631
    or newer), Python 3.10+ x64, and PowerShell under an ordinary medium-integrity
    desktop user. Bind evidence to commit/package, OS/build/architecture,
    interpreter, CLI versions and binary hashes. Do not replace this with WSL,

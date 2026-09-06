@@ -8,7 +8,7 @@ binary, daemon, or desktop application is bundled.
 ## Support and evidence
 
 `0.4.0-alpha.1` is experimental on Windows. The stable channel remains `0.3.0`
-for macOS. The Windows stable target is Windows 11 **24H2+ x64**, PowerShell,
+for macOS. The Windows stable target is Windows 11 **23H2+ x64**, PowerShell,
 and native Python **3.10+ x64**. Linux and Windows ARM64 are not release targets.
 
 The 2026-09-06 native lab established **23H2 compatibility evidence only**:
@@ -92,7 +92,7 @@ reports, enumerate credential targets, or migrate native sessions across OSes.
 
 ## Stable Windows gate
 
-Release acceptance needs native 24H2+ x64 ordinary-user evidence for the final
+Release acceptance needs native Windows 11 23H2+ x64 ordinary-user evidence for the final
 version: public installation and five-skill discovery, official first login and
 client restart authentication, actual reads/resume/project writes/cancel/timeout,
 ACLs, lock contention, disconnect/crash recovery, and OS-confirmed descendant

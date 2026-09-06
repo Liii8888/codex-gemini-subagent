@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Accept Windows 11 23H2+ x64 as the single-account stable-release test target.
+  Native 24H2+ coverage is optional; no operating-system upgrade is required.
+  Official first login, real project write, actual cancellation/deadline cleanup,
+  and final-source native validation are still required. Earlier alpha evidence
+  and immutable release assets retain their original scope and identifiers.
+
 ## 0.4.0-alpha.1 — 2026-09-07 (prerelease)
 
 Native Windows adaptation target: Windows 11 24H2+ x64, PowerShell, and native

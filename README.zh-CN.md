@@ -6,7 +6,8 @@
 Codex 负责启动、等待、获取结果、续接会话、取消任务和验证改动。
 
 **macOS 稳定版为 `v0.3.0`；Windows 预发布版为 `v0.4.0-alpha.1`。**
-Windows 正式目标保持为 Windows 11 24H2+ x64、PowerShell、原生 Python 3.10+ x64。
+Windows 正式目标为 Windows 11 23H2+ x64、PowerShell、原生 Python 3.10+ x64。
+现有 23H2 客户端可用于正式版验收；24H2+ 测试属于后续覆盖，不再是发布前提。
 
 23H2 普通用户测试已经取得原生离线通过、Codex 控制 agy 读取和同会话续接的证据。
 **Windows 尚未通过发布验收：普通项目写入失败、真实超时未触发、官方首次登录未独立验证。**
@@ -107,7 +108,7 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 `doctor` 会初始化私有状态；Windows 的 `capabilities` 包含 `task_lifecycle`、
 `credential_storage`、`credential_profiles`、`shared_reads`、`desktop_integration`。
 生命周期虽显示 available，但标记为 `pending-native-acceptance`；凭据存储只有合成测试，
-真实 profile 和共享读不可用，桌面集成待验收。23H2 的原生进程、锁与 ACL 证据不等于 24H2+ 发布验收。
+真实 profile 和共享读不可用，桌面集成待验收。原生进程、锁与 ACL 证据本身不等于完整的单账号发布验收。
 新 macOS 用户的运行数据默认放在 `~/Library/Application Support/Gemini-Subagent/runtime`，
 Windows 则使用真实操作系统用户的 `%LOCALAPPDATA%\Gemini-Subagent\runtime`。
 首次初始化只授权当前项目；同系统的兼容升级保留既有状态，不跨系统迁移凭据或原生会话。
@@ -115,7 +116,7 @@ Windows 则使用真实操作系统用户的 `%LOCALAPPDATA%\Gemini-Subagent\run
 
 ## 适用范围
 
-- Windows 为实验性支持；23H2 兼容性证据与待完成的 24H2+ 单账号发布验收分别记录。Linux 不属于发布目标。
+- Windows 为实验性支持；23H2 已满足验收系统要求，单账号真实任务验收仍待完成。Linux 不属于发布目标。
 - `read` 使用 provider 的 plan/approval 与 sandbox，属于只读意图，不能当作强制逐工具禁写。
 - 操作系统凭据切换和同账号并发属于非官方兼容能力，provider 更新后可能失效。
 - 任务及 provider 读取的相关项目内容会通过你的账号发送给 Google。

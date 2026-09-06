@@ -29,7 +29,9 @@
   drive roots, the whole home directory, and unsafe runtime roots. On Windows,
   use the real OS user's LocalAppData for the canonical authentication domain;
   home overrides and alternate job runtimes must not split its native lock.
-- Native Windows work targets Windows 11 24H2+ x64, PowerShell, Python 3.10+.
+- Native Windows work targets Windows 11 23H2+ x64, PowerShell, Python 3.10+.
+  A Windows 11 23H2 client is sufficient for the single-account release gate;
+  record the tested build and do not claim untested newer-build coverage.
   Invoke the exact installed script through a verified native Python executable;
   never depend on shebangs or `.py` associations. Preserve existing host approval
   policy and explicit opt-ins. Do not automatically change execution policy,

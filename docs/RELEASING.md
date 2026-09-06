@@ -61,8 +61,10 @@ Submission to the official plugin directory is a separate milestone.
 
 ## Stable promotion and rollback
 
-Only merge and publish a new `v0.4.0` after the single-account 24H2+ x64 native
-gate passes. Do not upgrade the retained 23H2 lab to satisfy it. Fresh official
+Only merge and publish a new `v0.4.0` after the single-account Windows 11 23H2+
+x64 native gate passes. The retained 23H2 client is an accepted test target;
+24H2+ testing is additional coverage, not a stable-release prerequisite. Record
+the actual tested build without claiming untested-build results. Fresh official
 Codex/agy login cannot be replaced with imported credentials; preserve normal
 permissions and obtain actual write, cancel, and timeout evidence. A new live
 batch is limited to six top-level tasks, 120 seconds each, with Codex fixed to
