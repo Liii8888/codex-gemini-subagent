@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Subagent Rescue"
+  short_description: "Delegate serial or guarded parallel Google CLI work"
+  default_prompt: "Use $gemini-subagent:rescue to delegate this task to a managed Google CLI worker and use guarded same-account read concurrency only when eligible."

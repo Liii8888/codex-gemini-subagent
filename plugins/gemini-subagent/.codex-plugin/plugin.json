@@ -1,0 +1,36 @@
+{
+  "name": "gemini-subagent",
+  "version": "0.3.0",
+  "description": "Managed Gemini CLI and Antigravity workers for Codex.",
+  "author": {
+    "name": "Liii8888",
+    "url": "https://github.com/Liii8888"
+  },
+  "license": "MIT",
+  "keywords": [
+    "gemini",
+    "antigravity",
+    "subagent",
+    "headless",
+    "quota"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Gemini Subagent",
+    "shortDescription": "Run controlled Google CLI workers from Codex",
+    "longDescription": "Delegate work to official Gemini or Antigravity CLIs while Codex controls accounts, quota checks, concurrency, status, cancellation, native session continuation, durable results, and verification.",
+    "developerName": "Liii8888",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Delegate this task with $gemini-subagent:rescue",
+      "Show Gemini worker, quota, account, or session status with $gemini-subagent:status",
+      "Retrieve the latest managed Gemini result with $gemini-subagent:result"
+    ]
+  },
+  "homepage": "https://github.com/Liii8888/codex-gemini-subagent",
+  "repository": "https://github.com/Liii8888/codex-gemini-subagent"
+}

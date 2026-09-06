@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Subagent Result"
+  short_description: "Retrieve durable per-job worker output"
+  default_prompt: "Use $gemini-subagent:result to retrieve and interpret the selected managed worker result independently."

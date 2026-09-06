@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Subagent Setup"
+  short_description: "Set up readiness, profiles, and guarded concurrency"
+  default_prompt: "Use $gemini-subagent:setup to configure Antigravity Keychain profiles, verify strict readiness, and manage capability-gated same-account reads."

@@ -1,0 +1,23 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Validate distribution
+        run: python3 tools/check_package.py
+      - name: Test with mock providers
+        run: python3 -W error::ResourceWarning -m unittest discover -s plugins/gemini-subagent/tests -v

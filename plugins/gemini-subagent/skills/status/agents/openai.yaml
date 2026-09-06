@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Subagent Status"
+  short_description: "Inspect concurrency, readiness, quota, and sessions"
+  default_prompt: "Use $gemini-subagent:status to inspect Gemini workers, capability-gated concurrency, strict readiness, official quota, and sticky sessions."

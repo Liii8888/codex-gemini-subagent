@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Subagent Cancel"
+  short_description: "Cancel one managed worker without harming siblings"
+  default_prompt: "Use $gemini-subagent:cancel to stop the selected Google CLI worker safely without affecting a shared-read sibling."
