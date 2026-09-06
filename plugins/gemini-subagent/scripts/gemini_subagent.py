@@ -372,7 +372,7 @@ def atomic_write_json(path: Path, data: Any) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         secure_chmod(tmp_path, 0o600)
-        os.replace(tmp_path, path)
+        fcntl.atomic_replace(tmp_path, path)
     finally:
         with contextlib.suppress(FileNotFoundError):
             tmp_path.unlink()
@@ -388,7 +388,7 @@ def atomic_write_text(path: Path, text: str) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         secure_chmod(tmp_path, 0o600)
-        os.replace(tmp_path, path)
+        fcntl.atomic_replace(tmp_path, path)
     finally:
         with contextlib.suppress(FileNotFoundError):
             tmp_path.unlink()
@@ -1655,7 +1655,9 @@ def _provider_lease_identity(record: dict[str, Any]) -> str:
         # The non-exec guardian is required to outlive every descendant.  A
         # missing leader with a live numeric PGID is therefore ambiguous and
         # may be a later group reuse; never authorize a signal from the PGID.
-        return "unknown"
+        # The group may also have exited after the first group probe. An
+        # absent leader alone proves nothing; a second empty group does.
+        return "stopped" if not process_group_alive(pgid) else "unknown"
     identity = process_identity(pid)
     if identity is None:
         return "stopped" if not process_group_alive(pgid) else "unknown"

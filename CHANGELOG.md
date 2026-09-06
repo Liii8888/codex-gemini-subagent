@@ -21,6 +21,9 @@ optional official Gemini CLI workflow is preserved.
   refuse uncertain cross-session cleanup and preserve the original records.
 - Add the reversible lab ledger, cleanup conflict checks, and same-context
   synthetic credential cleanup tests.
+- Bound retries for Windows atomic state-file replacement while a reader holds
+  the old file; preserve persistent permission failures. Recheck group absence
+  when a provider exits between identity probes, retaining fail-closed ownership.
 - Keep one set of five skills, with bundled platform instructions and checked
   local references. Add committed-source archives and SHA-256 manifests.
 - Preserve `v0.3.0` as the stable macOS channel; Windows installs select this
@@ -33,14 +36,14 @@ initialization. Project writes failed, real timeout was not triggered, and
 first-time official Windows login is unproven. These are known preview limits.
 See [version-bound evidence](docs/VALIDATION.md) for counts and source identity.
 
-**Windows is not accepted for release.** The credential backend has synthetic
+**Windows stable release acceptance remains NOT ACCEPTED.** The credential backend has synthetic
 coverage, but the official fixed `agy` Windows credential contract remains
 unproven. Windows profile requests reject before metadata writes. The shared
 probe returns `UNAVAILABLE` even when explicitly invoked; Windows behavioral
 probe execution is not implemented. Real multi-account switching/shared reads
-remain disabled. The CI matrix is configured, not evidence of a completed run.
-Native lifecycle/ACL/lock checks, official start/resume/quota, and separately
-authorized shared-read evidence remain required; see [validation](docs/VALIDATION.md).
+remain disabled. Consult the attached exact-commit validation summary for CI
+and current native results. Stable 24H2+ acceptance and any future optional
+shared-read gate remain separate; see [validation](docs/VALIDATION.md).
 Earlier macOS reports and the 0.3.0 source review do not certify this prerelease.
 
 ## 0.3.0 — 2026-09-06

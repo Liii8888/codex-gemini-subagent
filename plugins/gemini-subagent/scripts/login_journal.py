@@ -448,7 +448,7 @@ def _windows_load(path: Path) -> dict[str, Any] | None:
 
 
 def _windows_write(path: Path, normalized: dict[str, Any]) -> dict[str, Any]:
-    from platform_fs import private_mkdir, secure_chmod
+    from platform_fs import atomic_replace, private_mkdir, secure_chmod
     destination = _validated_destination(path)
     private_mkdir(destination.parent)
     previous = _windows_load(destination)
@@ -467,7 +467,7 @@ def _windows_write(path: Path, normalized: dict[str, Any]) -> dict[str, Any]:
             handle.flush()
             os.fsync(handle.fileno())
         secure_chmod(Path(name), 0o600)
-        os.replace(name, destination)
+        atomic_replace(Path(name), destination)
     finally:
         try:
             Path(name).unlink()

@@ -18,6 +18,7 @@ import operator
 import os
 import stat
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -35,7 +36,7 @@ __all__ = [
     "IS_WINDOWS", "LOCK_SH", "LOCK_EX", "LOCK_NB", "LOCK_UN",
     "current_user_id", "real_user_home", "user_local_data", "private_mkdir",
     "secure_chmod", "file_is_private", "current_user_owns", "flock",
-    "restore_dacl",
+    "restore_dacl", "atomic_replace",
     "security_sddl",
 ]
 
@@ -582,6 +583,27 @@ def restore_dacl(path: Path, sddl: str) -> None:
 
 def security_sddl(path: Path) -> str:
     return _windows().security_sddl(Path(path))
+
+
+def atomic_replace(source: Path, destination: Path, *, timeout: float = 1.0) -> None:
+    """Replace a prepared file, tolerating brief Windows reader/share conflicts.
+
+    A Windows reader opened without FILE_SHARE_DELETE can make os.replace fail
+    with ACCESS_DENIED (5), SHARING_VIOLATION (32), or LOCK_VIOLATION (33).
+    Retry only these native codes for a bounded interval. Persistent denials
+    still raise; this never changes ownership, ACLs, or the original destination.
+    POSIX keeps its original single atomic rename.
+    """
+    deadline = time.monotonic() + max(0.0, timeout)
+    while True:
+        try:
+            os.replace(source, destination)
+            return
+        except OSError as exc:
+            if (not IS_WINDOWS or getattr(exc, "winerror", None) not in (5, 32, 33)
+                    or time.monotonic() >= deadline):
+                raise
+            time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
 
 
 def flock(fd: int, operation: int) -> None:
