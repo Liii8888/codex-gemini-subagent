@@ -57,6 +57,20 @@ codex plugin add gemini-subagent@gemini-subagent-public --json
 codex plugin list --marketplace gemini-subagent-public --json
 ```
 
+To limit the Git marketplace checkout, append `--sparse .agents/plugins
+--sparse plugins/gemini-subagent` to `marketplace add`. These are native Codex
+options; do not edit the installed cache or introduce an install hook to delete
+files. Git still retains some root files and metadata.
+
+**Unreleased lean packaging:** current development snapshots keep tests and
+development tooling outside the installable plugin. The next release can also
+provide a `*-plugin.zip` containing only a local marketplace, install guidance,
+and the universal plugin. Verify it against `SHA256SUMS` and
+`plugin-manifest.json`, extract it into a retained directory, then use
+`codex plugin marketplace add <extracted-directory> --json` followed by the
+same `plugin add` command. The existing published `v0.4.0-alpha.1` package
+has not been replaced. See [packaging boundaries](docs/RELEASING.md#install-payload).
+
 Read the command results. Verify the plugin is installed and enabled at the
 expected prerelease version. These commands require the tag to be published;
 if it is unavailable, report that fact rather than silently installing another

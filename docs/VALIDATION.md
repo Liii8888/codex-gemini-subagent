@@ -82,7 +82,7 @@ From the repository root, using the verified interpreter:
 
 ```bash
 python3 tools/check_package.py
-python3 -W error::ResourceWarning -m unittest discover -s plugins/gemini-subagent/tests -v
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
 ```
 
 On native PowerShell use `python` (or the exact native `python.exe`) for both

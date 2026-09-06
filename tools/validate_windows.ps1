@@ -179,7 +179,7 @@ def run_mock_suite():
 
     # Standard discovery, with one explicit side-effect exclusion for this tool.
     # CI keeps the normal unittest CLI, including its synthetic native store test.
-    suite = unittest.defaultTestLoader.discover("plugins/gemini-subagent/tests")
+    suite = unittest.defaultTestLoader.discover("tests")
 
     def exclude_native_store(items):
         for item in items:

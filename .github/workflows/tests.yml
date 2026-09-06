@@ -34,6 +34,11 @@ jobs:
           python -c "import os,platform,sys; print(platform.platform()); print(sys.version); print('Runner image:',os.environ.get('ImageOS'),os.environ.get('ImageVersion'))"
       - name: Validate distribution
         run: python tools/check_package.py
+      - name: Build committed source and runtime bundles
+        run: >-
+          python -B -c "import os,subprocess,sys; from pathlib import Path;
+          subprocess.run([sys.executable,'-B','tools/build_release.py','--ref','HEAD',
+          '--out-dir',str(Path(os.environ['RUNNER_TEMP'])/'gemini-subagent-release')],check=True)"
       - name: Test with mock providers
         run: python -W error::ResourceWarning tools/run_ci_tests.py
       - name: Parse Windows acceptance tooling

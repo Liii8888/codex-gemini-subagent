@@ -473,7 +473,7 @@ def run_suite(run, pattern="test*.py", require_desktop=True):
                 self.note(subtest, "FAIL", self._exc_info_to_string(err, test))
 
     started = time.monotonic()
-    suite = unittest.defaultTestLoader.discover(str(REPO / "plugins/gemini-subagent/tests"), pattern=pattern)
+    suite = unittest.defaultTestLoader.discover(str(REPO / "tests"), pattern=pattern)
     if not suite.countTestCases():
         raise ValueError("No tests matched the requested pattern")
     with (run / "unittest.log").open("w", encoding="utf-8") as stream:
@@ -564,8 +564,8 @@ def run_system_probes(run, ledger):
         fs.private_mkdir(run / "project")
         mock_env = dict(env, GEMINI_SUBAGENT_RUNTIME_ROOT=str(run / "mock-runtime"),
                         GEMINI_SUBAGENT_ALLOWED_ROOTS=str(run / "project"),
-                        GEMINI_SUBAGENT_AGY_BIN=str(REPO / "plugins/gemini-subagent/tests/mock_google_cli.py"),
-                        GEMINI_SUBAGENT_TESTING="1", PYTHONPATH=str(REPO / "plugins/gemini-subagent/tests/support"))
+                        GEMINI_SUBAGENT_AGY_BIN=str(REPO / "tests/mock_google_cli.py"),
+                        GEMINI_SUBAGENT_TESTING="1", PYTHONPATH=str(REPO / "tests/support"))
         sentinel = launch("unrelated-sentinel", [sys.executable, "-c", "import time;time.sleep(90)"], env)
         active_job = invoke("start", "--cwd", str(run / "project"), "--provider", "agy",
                             "--account", "antigravity-system", "--prompt", "SLEEP_FOR_CANCEL",

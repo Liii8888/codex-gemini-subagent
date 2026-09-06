@@ -20,6 +20,10 @@ Codex 集成保留了正常的精确命令审批，不代表全部操作均在�
 不附带 Google 程序、凭据或 API 代理。详见包内的
 [平台说明](plugins/gemini-subagent/references/platforms.md)和[版本绑定验证记录](docs/VALIDATION.md)。
 
+开发分支采用精简通用包：测试和开发工具留在插件目录外，各系统适配源码继续共用，
+不捆绑 provider 二进制或额外平台依赖。构建新版本时同时生成完整源码包和精简安装包；
+已公开的 alpha.1 包保持不变。详见[打包说明](docs/RELEASING.md#install-payload)。
+
 ## 让你的 Agent 安装和配置
 
 把下面这句话交给 Codex：
@@ -132,7 +136,7 @@ Windows 则使用真实操作系统用户的 `%LOCALAPPDATA%\Gemini-Subagent\run
 ```bash
 python3 tools/check_package.py
 python3 -W error::ResourceWarning -m unittest discover \
-  -s plugins/gemini-subagent/tests -v
+  -s tests -v
 ```
 
 测试使用模拟 provider 与临时目录，不需要登录 Google，也不会发起付费模型调用。

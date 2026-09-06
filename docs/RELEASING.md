@@ -5,6 +5,38 @@ shared workflows in the skills and runtime, and OS differences in the native
 adapters and bundled platform reference. Do not create permanent macOS/Windows
 branches or duplicate skill trees. Preserve existing commands and JSON meanings.
 
+## Install payload
+
+Use a **lean universal plugin**. Only runtime scripts, the five skills and their
+bundled references, the manifest, license and user guide live in
+`plugins/gemini-subagent`. Tests and mock injection live in `tests/`, development
+rules in `docs/DEVELOPMENT.md`, and build/validation tools in `tools/`.
+`check_package.py` rejects unexpected files in the installable tree. Keep
+adapter sources common; do not add a custom platform-selecting installer or
+bundle agy, Codex, Python, Windows DLLs, or SDKs.
+
+This follows the script-plugin pattern used by
+[Superpowers](https://github.com/obra/superpowers/blob/main/scripts/sync-to-codex-plugin.sh),
+which excludes development trees from its Codex distribution, and Python
+[keyring](https://github.com/jaraco/keyring/blob/main/pyproject.toml), which exposes
+multiple OS backends in one package while selecting dependencies by OS.
+[VS Code platform packages](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#platform-specific-extensions)
+are a separate host feature, especially useful for native dependencies.
+Codex 0.153.4's local-source installer copies the selected plugin directory;
+its manifest/marketplace schema does not select per-OS variants. Do not assume
+VS Code's `--target` or `.vscodeignore` applies here.
+
+For Git marketplace installs, use the officially supported
+[`--sparse` options](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli)
+for `.agents/plugins` and `plugins/gemini-subagent`. Git may retain root files
+and metadata; sparse checkout is not a promise of zero cache overhead.
+The runtime ZIP is available for users who want only the local marketplace and
+plugin payload, without a full development checkout. Keep the extracted source
+for reinstall/update, and let Codex manage its installed copy.
+
+This layout is an **unreleased development change**. The already published
+`v0.4.0-alpha.1` assets and historical file counts remain unchanged.
+
 ## Channels
 
 - `main` and `v0.3.0` remain the stable macOS entry during 0.4 testing.
@@ -37,7 +69,10 @@ model call is required to build, audit, tag, or publish.
 5. Commit the candidate. Build with `python3 tools/build_release.py --ref HEAD
    --out-dir /absolute/path/outside-the-repository`. The builder uses committed
    content, rejects dirty worktrees and unsafe distribution paths, and emits
-   archives, a per-file manifest, and checksums. Bind external validation results
+   full source archives, `source-manifest.json`, a lean `*-plugin.zip`,
+   `plugin-manifest.json`, and shared `SHA256SUMS`. Both manifests bind to the
+   same commit; the runtime manifest also binds to the source content digest.
+   Bind external validation results
    to that commit and manifest; never relabel older live results as new runs.
 
 ## Publish an immutable preview
@@ -45,7 +80,7 @@ model call is required to build, audit, tag, or publish.
 After the candidate's CI and native checks pass, create an annotated tag on
 that exact commit and push the branch and tag. Create a release with
 `gh release create v0.4.0-alpha.1 --verify-tag --draft --prerelease --latest=false`,
-attaching the archives, manifest, checksums, sanitized validation summary, and
+attaching source and runtime archives, both manifests, checksums, sanitized validation summary, and
 known issues. Read the completed draft and verify assets before publishing it
 with `gh release edit v0.4.0-alpha.1 --draft=false --prerelease --latest=false`.
 Use a notes file for release text.

@@ -70,6 +70,6 @@ def windows_test_owner():
 
 
 if __name__ == "__main__":
-    sys.argv = ["unittest", "discover", "-s", "plugins/gemini-subagent/tests", "-v"]
+    sys.argv = ["unittest", "discover", "-s", "tests", "-v"]
     with windows_test_owner():
         runpy.run_module("unittest", run_name="__main__")

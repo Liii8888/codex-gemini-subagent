@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build reproducible source archives from one clean, committed Git snapshot.
+"""Build source archives and a lean install bundle from one committed snapshot.
 
 No network, provider call, installation, tag creation, or publication occurs.
 """
@@ -16,7 +16,64 @@ import tarfile
 import zipfile
 from pathlib import Path
 
-from check_package import check_windows_paths
+from check_package import check_windows_paths, runtime_path
+
+
+def inventory_for(files: dict) -> list[dict]:
+    return [{"path": name, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+             "mode": format(mode, "04o")} for name, (data, mode) in sorted(files.items())]
+
+
+def content_digest(inventory: list[dict]) -> str:
+    return hashlib.sha256(json.dumps(inventory, sort_keys=True,
+                                    separators=(",", ":")).encode()).hexdigest()
+
+
+def write_zip(path: Path, prefix: str, files: dict) -> None:
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, (data, mode) in sorted(files.items()):
+            info = zipfile.ZipInfo(prefix + "/" + name, (1980, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = (0o100000 | mode) << 16
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, data)
+
+
+def install_files(files: dict, version: str, commit: str) -> dict:
+    """Materialize a standard local marketplace, with no custom installer."""
+    plugin_prefix = "plugins/gemini-subagent/"
+    selected = {name: value for name, value in files.items()
+                if name.startswith(plugin_prefix) and runtime_path(name[len(plugin_prefix):])}
+    marketplace_path = ".agents/plugins/marketplace.json"
+    selected[marketplace_path] = files[marketplace_path]
+    marketplace = json.loads(selected[marketplace_path][0])
+    assert len(marketplace["plugins"]) == 1
+    assert marketplace["plugins"][0]["source"] == {
+        "source": "local", "path": "./plugins/gemini-subagent"}
+    # Link development material to its exact source commit, outside the payload.
+    selected["README.md"] = ((
+        f"# Gemini Subagent {version} — runtime bundle\n\n"
+        f"Source commit: `{commit}`. This archive contains the same universal\n"
+        "plugin for macOS and Windows, plus its local marketplace. It does not\n"
+        "contain tests, development tooling, provider binaries, or credentials.\n\n"
+        "Extract this archive into a directory you will retain, review\n"
+        "[the plugin guide](plugins/gemini-subagent/README.md), then use the\n"
+        "official Codex CLI with the absolute path to this extracted directory:\n\n"
+        "```text\n"
+        "codex plugin marketplace add <extracted-directory> --json\n"
+        "codex plugin add gemini-subagent@gemini-subagent-public --json\n"
+        "```\n\n"
+        "Select one source for this marketplace in a Codex home; do not replace\n"
+        "an existing source without reviewing the installed version. Codex keeps\n"
+        "its own installed copy. Keep the extracted source for reinstall/update.\n"
+        "Use official plugin removal; do not delete runtime data or logins.\n\n"
+        "The version string alone is not release acceptance. Review\n"
+        f"[validation](https://github.com/Liii8888/codex-gemini-subagent/blob/{commit}/docs/VALIDATION.md)\n"
+        "for the actual platform and provider evidence. New builds use new\n"
+        "release versions; do not replace assets of an existing public tag.\n"
+    ).encode("utf-8"), 0o644)
+    check_windows_paths(selected)
+    return selected
 
 
 def git(root, *args):
@@ -52,14 +109,21 @@ def build(root: Path, ref: str, output: Path) -> dict:
     if not isinstance(version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", version):
         raise ValueError("Invalid release version")
     prefix = "codex-gemini-subagent-" + version
-    inventory = [{"path": name, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                  "mode": format(mode, "04o")} for name, (data, mode) in sorted(files.items())]
+    inventory = inventory_for(files)
     manifest = {"schema_version": 1, "commit": commit, "version": version,
-                "content_sha256": hashlib.sha256(json.dumps(inventory, sort_keys=True,
-                                                           separators=(",", ":")).encode()).hexdigest(),
+                "content_sha256": content_digest(inventory),
                 "files": inventory}
+    runtime_files = install_files(files, version, commit)
+    runtime_inventory = inventory_for(runtime_files)
+    runtime_prefix = "gemini-subagent-" + version + "-plugin"
+    runtime_manifest = {"schema_version": 1, "kind": "runtime-plugin",
+                        "platform": "universal", "commit": commit, "version": version,
+                        "source_content_sha256": manifest["content_sha256"],
+                        "content_sha256": content_digest(runtime_inventory),
+                        "files": runtime_inventory}
     output.mkdir(parents=True, exist_ok=True)
-    names = [prefix + ".tar.gz", prefix + ".zip", "source-manifest.json", "SHA256SUMS"]
+    names = [prefix + ".tar.gz", prefix + ".zip", "source-manifest.json",
+             runtime_prefix + ".zip", "plugin-manifest.json", "SHA256SUMS"]
     if any((output / name).exists() for name in names):
         raise FileExistsError("Refusing to replace existing release assets")
     tar_buffer = io.BytesIO()
@@ -71,17 +135,13 @@ def build(root: Path, ref: str, output: Path) -> dict:
     with (output / names[0]).open("wb") as stream:
         with gzip.GzipFile(fileobj=stream, mode="wb", filename="", mtime=0) as compressed:
             compressed.write(tar_buffer.getvalue())
-    with zipfile.ZipFile(output / names[1], "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for name, (data, mode) in sorted(files.items()):
-            info = zipfile.ZipInfo(prefix + "/" + name, (1980, 1, 1, 0, 0, 0))
-            info.create_system = 3
-            info.external_attr = (0o100000 | mode) << 16
-            info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, data)
+    write_zip(output / names[1], prefix, files)
     (output / names[2]).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    (output / names[3]).write_text("".join(
+    write_zip(output / names[3], runtime_prefix, runtime_files)
+    (output / names[4]).write_text(json.dumps(runtime_manifest, indent=2) + "\n", encoding="utf-8")
+    (output / names[5]).write_text("".join(
         hashlib.sha256((output / name).read_bytes()).hexdigest() + "  " + name + "\n"
-        for name in names[:3]), encoding="utf-8")
+        for name in names[:5]), encoding="utf-8")
     return manifest
 
 

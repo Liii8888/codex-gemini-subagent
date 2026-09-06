@@ -27,6 +27,12 @@ binaries, credentials, hosted service, or API proxy are included. See the
 [bundled platform guide](plugins/gemini-subagent/references/platforms.md) and
 [version-bound evidence](docs/VALIDATION.md).
 
+The development install payload is a lean universal plugin: tests and development
+tools stay outside it. OS adapter sources remain shared, with no bundled provider
+binaries or extra platform dependencies. A separate runtime ZIP accompanies full
+source archives when building a new release; existing alpha.1 assets are unchanged.
+See [packaging](docs/RELEASING.md#install-payload).
+
 ## Let your agent install and set it up
 
 Give your Codex agent this request:
@@ -173,7 +179,7 @@ sessions are not migrated across operating systems.
 ```bash
 python3 tools/check_package.py
 python3 -W error::ResourceWarning -m unittest discover \
-  -s plugins/gemini-subagent/tests -v
+  -s tests -v
 ```
 
 The suite uses mock providers and temporary runtimes, with no Google sign-in or

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Keep one lean universal plugin. Move mock tests and injection helpers to the
+  repository-level `tests/` tree and development instructions to
+  `docs/DEVELOPMENT.md`, outside the installed plugin. Native adapter code stays
+  shared; no platform binaries or extra dependencies are bundled.
+- Build a separate runtime-only marketplace ZIP and `plugin-manifest.json`
+  alongside the complete source archives. Keep per-file hashes, reproducibility,
+  and immutable-asset protection. Document native Codex sparse checkout.
+
 - Add named **agy-only** Windows profiles through Agent-invoked `account add`
   and `account import-current`, plus list/default/activation and worker refresh
   reconciliation. No Codex credential management or login watcher is added.

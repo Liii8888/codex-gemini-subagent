@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Gemini Subagent",
     "shortDescription": "Run controlled Google CLI workers from Codex",
-    "longDescription": "Delegate work to official Antigravity or optional Gemini CLI workers with managed lifecycle and durable results. Version 0.4.0-alpha.1 adds experimental native Windows support alongside macOS. Windows 11 23H2 offline and Codex-controlled read/resume evidence exists; project writes failed, real timeout was not triggered, and first-time official login is unproven. Windows 24H2+ release acceptance is pending. Windows multi-account switching and shared reads remain disabled.",
+    "longDescription": "Delegate work to official Antigravity or optional Gemini CLI workers with managed lifecycle and durable results. Experimental Windows 11 23H2+ support shares the macOS skills and runtime. Offline and Codex-controlled read/resume evidence exists; project writes and real timeout acceptance remain pending. Development builds add version-bound agy account profiles; Windows shared reads remain unavailable.",
     "developerName": "Liii8888",
     "category": "Coding",
     "capabilities": [
