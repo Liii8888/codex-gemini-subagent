@@ -72,7 +72,9 @@ native_import = builtins.__import__
 def checked_import(name, *args, **kwargs):
     forbidden = ('pwd', 'fcntl') if os.name == 'nt' else ('msvcrt',)
     if name in forbidden:
-        raise AssertionError('unexpected platform dependency: ' + name)
+        # Match an unavailable module. Newer pathlib versions probe pwd in a
+        # guarded import even on Windows; only requiring it should fail here.
+        raise ModuleNotFoundError('unavailable platform dependency: ' + name, name=name)
     return native_import(name, *args, **kwargs)
 builtins.__import__ = checked_import
 sys.path.insert(0, sys.argv[1])
