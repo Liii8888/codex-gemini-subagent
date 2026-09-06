@@ -13,9 +13,10 @@ assume a cache path, shebang, or `.py` association.
 
 For Windows invocation, permissions, session ownership, and current limitations,
 read the bundled [platform reference](../../references/platforms.md) before
-running the first command. Windows is experimental: project writes, real deadline
-expiry, and first-time official login have not passed live acceptance. Keep
-normal narrowly scoped host approval; multi-account/shared mode remains disabled.
+running the first command. Windows remains experimental. Named agy accounts use
+the version-bounded native credential adapter described there; shared reads stay
+disabled. Keep normal narrowly scoped host approval and report the remaining
+live acceptance gaps separately.
 
 ## Workflow
 
@@ -71,10 +72,11 @@ and the job uses Antigravity, the same OS credential profile/account UUID/creden
 revision, `mode=read`, and no unsafe bypass. The product and current evidence
 both cap the cohort at two; do not request or promise a third reader.
 
-Windows Credential Manager backend tests are synthetic. The official fixed
-`agy` Windows record contract and native live capability proof are missing;
-real Windows multi-account switching and shared reads must remain fail closed.
-Do not probe credentials or import macOS evidence to make a job schedulable.
+Windows named agy profiles require the verified native adapter, ordinary desktop
+identity and a ready saved credential revision. Specify the intended `--account`
+when the user selects an account. Keep Windows shared reads disabled; a saved
+profile is not a concurrency enabling report. See the bundled
+[account reference](../../references/platforms.md#named-agy-accounts).
 
 When the user asks for two independent read tasks and status reports the gate as
 effective, launch the first with an explicit account and without `--wait`. Poll

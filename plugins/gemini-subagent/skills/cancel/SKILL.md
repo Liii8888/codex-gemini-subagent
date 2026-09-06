@@ -13,9 +13,10 @@ assume a cache path, shebang, or `.py` association.
 
 For Windows invocation, permissions, session ownership, and current limitations,
 read the bundled [platform reference](../../references/platforms.md) before
-running the first command. Windows is experimental: project writes, real deadline
-expiry, and first-time official login have not passed live acceptance. Keep
-normal narrowly scoped host approval; multi-account/shared mode remains disabled.
+running the first command. Windows remains experimental. Named agy accounts use
+the version-bounded native credential adapter described there; shared reads stay
+disabled. Keep normal narrowly scoped host approval and report the remaining
+live acceptance gaps separately.
 
 1. Resolve the exact job ID with `status --active --json` if necessary. Do not
    guess when multiple jobs are active.

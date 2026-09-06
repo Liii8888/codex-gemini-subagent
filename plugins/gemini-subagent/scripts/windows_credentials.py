@@ -31,9 +31,9 @@ CRED_MAX_GENERIC_TARGET_NAME_LENGTH = 32767
 ERROR_NOT_FOUND = 1168
 SYNTHETIC_TEST_PREFIX = "com.openai.codex.gemini-subagent.test."
 WINDOWS_PROFILE_UNAVAILABLE_REASON = (
-    "Antigravity Windows managed profiles are unsupported: the Windows "
-    "Credential Manager item identifier and opaque record envelope have not "
-    "been verified. Production credential import, activation, and access are disabled."
+    "Antigravity Windows managed profiles require an explicitly selected, "
+    "verified agy binary and ordinary desktop user. This lock-only store has "
+    "no provider binding; credential import, activation and access are disabled."
 )
 
 
@@ -149,6 +149,8 @@ class WindowsCredentialManagerAccess:
         api: Any = None,
         test_namespace: str | None = None,
         persist: int = CRED_PERSIST_LOCAL_MACHINE,
+        username: str | None = None,
+        strict_metadata: bool = False,
     ):
         if isinstance(persist, bool) or not isinstance(persist, int) or persist not in {
             CRED_PERSIST_SESSION, CRED_PERSIST_LOCAL_MACHINE
@@ -156,6 +158,12 @@ class WindowsCredentialManagerAccess:
             raise WindowsCredentialShapeError("Unsupported credential persistence.")
         self._api = api
         self._persist = persist
+        if username is not None and (
+            not isinstance(username, str) or not username or "\0" in username
+        ):
+            raise WindowsCredentialShapeError("Invalid generic credential username metadata.")
+        self._username = username
+        self._strict_metadata = strict_metadata
         self._test_target_prefix: str | None = None
         if test_namespace is not None:
             try:
@@ -231,6 +239,18 @@ class WindowsCredentialManagerAccess:
                     raise WindowsCredentialShapeError(
                         "Credential Manager returned an unexpected credential type."
                     )
+                if self._strict_metadata and (
+                    record.TargetName != target
+                    or record.UserName != self._username
+                    or record.Persist != self._persist
+                    or record.Flags != 0
+                    or record.AttributeCount != 0
+                    or record.TargetAlias
+                    or record.Comment
+                ):
+                    raise WindowsCredentialShapeError(
+                        "Credential Manager record metadata differs from the fixed contract."
+                    )
                 result = bytearray(size)
                 if size:
                     ctypes.memmove((BYTE * size).from_buffer(result), blob, size)
@@ -266,6 +286,7 @@ class WindowsCredentialManagerAccess:
             record.Type = CRED_TYPE_GENERIC
             record.TargetName = target
             record.Persist = self._persist
+            record.UserName = self._username
             record.CredentialBlobSize = len(owned)
             buffer = (BYTE * len(owned)).from_buffer(owned) if owned else None
             record.CredentialBlob = (

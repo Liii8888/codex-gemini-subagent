@@ -25,3 +25,6 @@ def install() -> None:
 
     runtime_paths.canonical_auth_runtime_root = mock_auth_root
     runtime_paths._mock_auth_domain_installed = True
+    if os.environ.get("GEMINI_SUBAGENT_TEST_WINDOWS_VAULT_NAMESPACE"):
+        from windows_profile_fixture import install as install_windows_fixture
+        install_windows_fixture()

@@ -1453,7 +1453,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                           "probe": "agy_same_account_concurrency", "outcome": "UNAVAILABLE",
                           "platform": "win32", "os_build": platform.version(),
                           "real_provider_invoked": False, "parallel_enablement_allowed": False,
-                          "reasons": ["windows_provider_contract_unverified"],
+                          "reasons": ["windows_shared_behavior_unverified"],
                           "next_step": "Verify Windows credential binding and implement a native behavioral probe; macOS evidence cannot be reused."}, indent=2))
         return 0 if args.command in {None, "plan"} else 2
     if args.command in {None, "plan"}:

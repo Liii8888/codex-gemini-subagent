@@ -33,7 +33,8 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
   **Windows release acceptance is still pending**. The 23H2 lab has offline
   and Codex-controlled read/resume evidence, but project writes failed, real
   timeout did not trigger, and first-time official login is unproven. See the
-  bundled [platform reference](plugins/gemini-subagent/references/platforms.md). Real Windows multi-account/shared mode fails closed.
+  bundled [platform reference](plugins/gemini-subagent/references/platforms.md).
+  Development named agy accounts require the pinned native contract; Windows shared reads fail closed.
 - Inspect available official `agy` and optional `gemini` executables and the user's
   requested provider. Installation does not supply those binaries or a Google
   login. For a missing dependency, follow the provider's official instructions
@@ -110,8 +111,9 @@ process working directory set to the user's project, then `account list --json`.
 provider is usable. Inspect `providers`, account state, `platform`, and Windows
 `capabilities`: `task_lifecycle`, `credential_storage`, `credential_profiles`,
 `shared_reads`, and `desktop_integration`. Lifecycle reports available with
-`pending-native-acceptance`; storage is `synthetic-tests-only`; profiles/shared
-reads are unavailable, and desktop integration awaits native acceptance. The historical 23H2 native
+`pending-native-acceptance`; storage/profile validation is separate, named agy
+profiles require a verified binary and ordinary desktop user, shared reads are
+unavailable, and desktop integration awaits native acceptance. The historical 23H2 native
 process/lock/ACL proof alone does not establish complete single-account release acceptance.
 
 New runtime data uses the macOS user's Application Support directory, or the
@@ -138,13 +140,14 @@ report the actual selection and any unavailable capability:
   `account add <label> --provider agy --credential-profile`, an authorized
   `account import-current <label>` or interactive `account login <label>`, then
   `account verify <label> --json`. The alias selects macOS Keychain or Windows
-  Credential Manager automatically; the Windows request currently rejects as
-  unavailable before writing account metadata. `--keychain-profile` remains a
-  macOS compatibility spelling. Explain the unofficial adapter before the user's
-  opt-in. **Do not import, capture, switch, or enable real Windows profiles in
-  this prerelease:** the official fixed Windows record contract has no native
-  live proof. Never enumerate credential targets to guess it. Synthetic backend
-  tests are insufficient. Readiness requires both official `agy models` and
+  Credential Manager automatically; Windows requires the exact verified agy
+  binary and ordinary desktop user. `--keychain-profile` remains a macOS
+  compatibility spelling. Explain the unofficial adapter before the user's
+  opt-in. These profiles manage agy only, not Codex. Prefer importing an existing
+  selected login; do not request another login when the user chose reuse. See
+  the [native profile contract](plugins/gemini-subagent/references/platforms.md#named-agy-accounts).
+  Never enumerate credential targets to guess them; distinguish synthetic
+  two-account tests from real account evidence. Readiness requires both official `agy models` and
   structured `agy /usage` for the same credential revision.
 - **Login needed:** the user completes the official CLI/browser flow. Never
   request, inspect, extract, or type passwords, tokens, cookies, or 2FA material.
@@ -193,12 +196,13 @@ and the runner are present, which project is authorized, and which readiness
 checks passed. Distinguish "plugin installed", "provider verified", and "task
 completed". If login, CLI access, or permissions remain unavailable, say so.
 Do not copy account metadata or full private logs into this repository or issues.
-Always label Windows **not release-accepted**, with real multi-account/shared
-mode blocked pending the [native live gate](docs/VALIDATION.md#native-windows-live-gate).
+Keep Windows **not release-accepted** while project-write and real deadline
+acceptance remain incomplete. Report named agy profile evidence separately;
+shared reads stay blocked by their [native gate](docs/VALIDATION.md#native-windows-live-gate).
 The standalone `tools/validate_windows.ps1` can check a source checkout without
 Codex, provider access, or live `doctor`; an offline pass is not provider proof.
 Windows shared probing returns `UNAVAILABLE` even on explicit invocation; no
-Windows behavioral execution is implemented pending the fixed provider contract.
+Windows shared-read behavioral execution is implemented or accepted.
 
 Give the user an ordinary future request, for example:
 

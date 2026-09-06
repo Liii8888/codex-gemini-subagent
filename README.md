@@ -14,11 +14,15 @@ additional coverage, not a prerequisite.
 
 The 23H2 ordinary-user lab passed required offline native tests and demonstrated
 Codex-controlled agy reads and native continuation. **Windows release acceptance
-has not passed:** project writes failed, real timeout was not triggered, and
-first-time official Windows login is unproven. The Codex test retained normal
+has not passed:** project writes failed and real timeout was not triggered.
+First-time official Windows login is unproven; this release's authentication
+checks may reuse explicitly authorized test credentials. The Codex test retained normal
 exact-command approvals; it was not approval-free sandbox execution.
 
-Windows multi-account switching and shared reads remain disabled. No Google
+The development branch adds Agent-invoked saving and selection of named **agy**
+accounts using Windows Credential Manager, bounded to verified agy 1.1.27 x64
+and the ordinary desktop user. This change is not in the immutable alpha.1
+release. It does not manage Codex credentials; Windows shared reads stay disabled. No Google
 binaries, credentials, hosted service, or API proxy are included. See the
 [bundled platform guide](plugins/gemini-subagent/references/platforms.md) and
 [version-bound evidence](docs/VALIDATION.md).
@@ -46,7 +50,8 @@ future Codex tasks can discover the workflow without reading this repository.
 - Antigravity quota and reset information through the official `agy /usage` CLI.
 - Optional named Antigravity accounts backed by the OS credential store, with
   cooldowns and bounded failover for eligible new jobs. macOS uses Keychain;
-  Windows Credential Manager integration remains gated by native evidence.
+  development Windows profiles require the pinned native credential contract.
+  Save an existing login with `account import-current`; no login watcher is required.
 - Serialized execution by default. An experimental, explicitly enabled
   capability allows at most two same-account Antigravity read workers after
   a matching live behavioral probe. Writes remain exclusive.
@@ -139,8 +144,9 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 `doctor` initializes private runtime state. On Windows, inspect `capabilities`:
 `task_lifecycle`, `credential_storage`, `credential_profiles`, `shared_reads`,
 and `desktop_integration`. Lifecycle is available with `pending-native-acceptance`;
-storage has synthetic coverage, profiles/shared reads are unavailable, and
-desktop integration is pending. Process/lock/ACL evidence alone does not
+profile access requires the pinned agy binary and ordinary desktop user; native
+validation is separate, shared reads are unavailable, and desktop integration
+is pending. Process/lock/ACL evidence alone does not
 establish complete single-account release acceptance. A new Windows runtime defaults
 to the real OS user's `%LOCALAPPDATA%\Gemini-Subagent\runtime`, while macOS uses
 `~/Library/Application Support/Gemini-Subagent/runtime`. Credentials and native

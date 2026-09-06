@@ -15,7 +15,7 @@ Existing preview evidence does not establish full provider parity.
 | Native task lifecycle | Windows Job Objects, native locks/private ACLs, SID/Session/logon-LUID ownership; required 23H2 offline checks passed | Bind final-source checks to the tested Windows 11 client; real provider deadline still unproven |
 | Official single-account agy | 1.1.27 models/structured usage, reads, native continuation, and cancel during initialization observed | Project writes failed; first-time official login and real timeout unproven |
 | Codex CLI | 0.153.4 / gpt-5.6-luna discovered five installed skills and invoked start/status/wait/result | Exact one-time host approvals were required; not approval-free sandbox execution or desktop App acceptance |
-| Credential profiles | Synthetic native storage tested, including same-logon cleanup after failure | Real Windows profiles reject before metadata writes; fixed provider target/shape/refresh/ownership not release-proven |
+| Credential profiles | Development agy-only adapter with pinned 1.1.27 binary and observed native record metadata; Agent-invoked saving and switching | Separate native synthetic and real saved-account evidence required; no claim of two distinct live accounts or actual token rotation |
 | Shared reads | Existing gated macOS implementation | Windows probe stays UNAVAILABLE, even when explicitly invoked; no Windows behavioral implementation |
 | Diagnostics | Existing doctor.capabilities reports primitives and conservative validation states | An available primitive is not a supported-platform or provider-readiness claim |
 | CI and distribution | Four OS/Python combinations, committed-source packaging, bundled-reference checks | Consult exact-commit CI and release validation assets, not merely the workflow configuration |
@@ -172,7 +172,7 @@ Keep baseline, source hashes, installation receipts, per-case results,
 rollback previews, and retention lists outside the public repository. Bind
 final Mac regression, native results, and installed content to one source
 manifest. A 23H2 lab run can satisfy the operating-system requirement. Offline
-success alone does not satisfy the official-login and real-task requirements
+success alone does not satisfy the authentication and real-task requirements
 below; the lab's historical `23H2_COMPATIBILITY_ONLY` output is not a release verdict.
 
 ## Standalone Windows report
@@ -227,7 +227,7 @@ restriction and use already-authorized offline commands; do not weaken policy.
 ## Native Windows live gate
 
 The **0.4 single-account CLI stable gate remains pending**. The existing 23H2
-client can satisfy the OS requirement; remaining login and real-task checks
+client can satisfy the OS requirement; remaining authentication and real-task checks
 must still pass. No 24H2+ machine or operating-system upgrade is required.
 Use the official [Codex Windows guide](https://learn.chatgpt.com/docs/windows/windows-app)
 and [agy installation guide](https://antigravity.google/docs/cli/install).
@@ -238,11 +238,14 @@ and [agy installation guide](https://antigravity.google/docs/cli/install).
    interpreter, CLI versions and binary hashes. Do not replace this with WSL,
    Windows Server, SSH Session 0, administrator rights, or Full Access. Preserve
    the existing 23H2 lab without upgrading it.
-2. **Public installation and first login.** Install the published tag in an
-   isolated Codex home, verify installed files and five-skill discovery in a
-   new session. The user must complete both official Codex and agy login, and
-   authenticate again after restarting the clients. Imported credentials cannot
-   substitute for first-login evidence. Do not collect authentication output.
+2. **Public installation and existing authentication.** Install the published
+   tag in an isolated test configuration, verify installed files and five-skill
+   discovery in a new session. Reuse the owner's explicitly authorized existing
+   test credentials through the official clients and verify authentication after
+   restarting them. The owner waived fresh-login acceptance on 2026-09-07;
+   first-time Windows onboarding remains unverified and is not a promotion
+   prerequisite for this release. Use these credentials only for the bounded
+   tests. Do not log out, repeat login, or collect authentication output.
 3. **Native control and recovery.** Run the required offline suite and explicit
    native lock/ACL/context probes. Exercise non-ASCII/space paths, submitting
    shell exit, SSH disconnection, status/wait/result/resume, selected cancellation,
@@ -265,11 +268,15 @@ and [agy installation guide](https://antigravity.google/docs/cli/install).
 
 The single-account CLI gate does **not** enable these features or claim parity:
 
-- **Windows named credential profiles:** the exact official target, opaque
-  shape/size bounds, ownership, refresh/reconciliation, import, activation,
-  revision, rollback and cleanup contract needs separately authorized native
-  evidence. This remains a blocker for profiles. Never enumerate/guess targets
-  or decode/export blobs; reject profile requests before metadata writes.
+- **Windows named agy credential profiles:** the development adapter pins the
+  observed agy 1.1.27 x64 binary and fixed opaque record metadata. It adds
+  Agent-invoked save/list/activation and same-owner refresh reconciliation,
+  requires the ordinary desktop user, and rejects binary drift or cross-context
+  recovery. Native synthetic two-account tests and real saved-account checks
+  are separate evidence; neither proves two distinct live accounts or actual
+  refresh-token rotation. See the bundled
+  [contract](../plugins/gemini-subagent/references/platforms.md#named-agy-accounts).
+  Never enumerate/guess targets or decode/export blobs.
 - **Windows shared reads:** remains UNAVAILABLE until the fixed credential
   contract and a native behavioral probe are implemented and reviewed. Require
   explicit live-probe authorization and an exact private BEHAVIORAL_PASS for

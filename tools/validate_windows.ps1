@@ -229,7 +229,7 @@ def main():
                              for name in ("git", "codex", "agy", "gemini")},
         "checks": {"package": {"status": "not_run"},
                    "mock_suite": {"status": "not_run"}},
-        "credential_profiles": "UNAVAILABLE_FIXED_CONTRACT_PENDING",
+        "credential_profiles": "REQUIRES_PINNED_AGY_AND_NATIVE_VALIDATION",
         "shared_probe": "UNAVAILABLE",
         "live": "instructions_only" if live else "not_run",
         "project_confirmed": live,
@@ -245,7 +245,7 @@ def main():
             "Verify exact installedPath, native Python, background lifecycle, locks and ACLs.",
             "Inspect doctor.capabilities: task_lifecycle, credential_storage, "
             "credential_profiles, shared_reads, desktop_integration; doctor initializes state.",
-            "Windows profile add rejects before metadata writes. Do not enumerate credentials.",
+            "Named agy profiles require the pinned binary and ordinary desktop user. Never enumerate credentials.",
             "Official agy start/resume/models/structured /usage remain pending native proof.",
         ]
         if shared:

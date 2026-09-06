@@ -2,10 +2,23 @@
 
 ## Unreleased
 
+- Add named **agy-only** Windows profiles through Agent-invoked `account add`
+  and `account import-current`, plus list/default/activation and worker refresh
+  reconciliation. No Codex credential management or login watcher is added.
+- Bound the adapter to the verified agy 1.1.27 x64 binary hash and fixed generic
+  opaque record. Store snapshots only in Windows Credential Manager, require
+  an ordinary desktop user, bind metadata to the user SID, and reject binary
+  drift or cross-context recovery. Windows shared reads remain unavailable.
+- Add native synthetic two-account switching, worker refresh ownership, busy
+  refusal and interrupted-import recovery coverage, with durable target intents
+  and same-context cleanup. Real account evidence is recorded separately.
+
 - Accept Windows 11 23H2+ x64 as the single-account stable-release test target.
   Native 24H2+ coverage is optional; no operating-system upgrade is required.
-  Official first login, real project write, actual cancellation/deadline cleanup,
-  and final-source native validation are still required. Earlier alpha evidence
+  Real project write, actual cancellation/deadline cleanup, authentication with
+  authorized existing test credentials, and final-source native validation are
+  still required. Fresh Windows login is unverified and is no longer a release
+  prerequisite; reused credentials are restricted to the bounded tests. Earlier alpha evidence
   and immutable release assets retain their original scope and identifiers.
 
 ## 0.4.0-alpha.1 — 2026-09-07 (prerelease)

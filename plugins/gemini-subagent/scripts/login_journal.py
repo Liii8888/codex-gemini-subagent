@@ -39,6 +39,7 @@ _FIELDS = frozenset(
         "target_backup_uuid",
         "readiness_policy",
         "created_at",
+        "windows_context",
     }
 )
 _FORBIDDEN_FIELD_PARTS = ("token", "credential", "password", "secret")
@@ -77,6 +78,7 @@ def new_login_journal(
     target_backup_uuid: str | None = None,
     readiness_policy: str | None = STRICT_READINESS_POLICY,
     created_at: str | None = None,
+    windows_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build and validate a new journal in the initial ``prepared`` phase."""
 
@@ -94,6 +96,8 @@ def new_login_journal(
         "readiness_policy": readiness_policy,
         "created_at": created_at or utc_now_iso(),
     }
+    if windows_context is not None:
+        record["windows_context"] = windows_context
     return validate_login_journal(record)
 
 
@@ -124,7 +128,7 @@ def validate_login_journal(record: Any) -> dict[str, Any]:
     # Legacy v1 journals predate strict readiness. They remain recoverable but
     # normalize to a null policy so recovery cannot grant a new readiness
     # proof that the old flow never performed.
-    missing = (_FIELDS - {"readiness_policy"}) - keys
+    missing = (_FIELDS - {"readiness_policy", "windows_context"}) - keys
     if unknown:
         names = ", ".join(sorted(str(key) for key in unknown))
         raise LoginJournalError(f"Unknown login journal field(s): {names}.")
@@ -193,6 +197,20 @@ def validate_login_journal(record: Any) -> dict[str, Any]:
         "readiness_policy": readiness_policy,
         "created_at": created_at,
     }
+    if "windows_context" in record:
+        from platform_process import same_context
+
+        context = record["windows_context"]
+        if (
+            not isinstance(context, dict)
+            or set(context) != {"user_sid", "session_id", "logon_id", "elevated", "integrity_level"}
+            or not same_context(context, context)
+            or context["session_id"] == 0
+            or context["elevated"] is not False
+            or context["integrity_level"] != 8192
+        ):
+            raise LoginJournalError("Invalid Windows login journal execution context.")
+        normalized["windows_context"] = dict(context)
     return normalized
 
 
@@ -412,7 +430,7 @@ def _object_without_duplicates(pairs: Iterable[tuple[str, Any]]) -> dict[str, An
 
 def _validate_rewrite(existing: dict[str, Any], updated: dict[str, Any]) -> None:
     for key in _FIELDS - {"phase"}:
-        if existing[key] != updated[key]:
+        if existing.get(key) != updated.get(key):
             raise LoginJournalError(f"Login journal field is immutable after prepare: {key}.")
     old_index = PHASES.index(existing["phase"])
     new_index = PHASES.index(updated["phase"])

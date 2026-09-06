@@ -15,10 +15,15 @@
   provider target, opaque record shape, and refresh/ownership contract. Fail
   closed when that platform's fixed contract or native evidence is unavailable;
   synthetic backend tests cannot authorize real Windows multi-account use.
-- Until the official Windows contract is proven, reject credential-profile
-  requests before writing account metadata. Keep the shared probe `UNAVAILABLE`
-  on Windows even for an explicit run; native behavioral execution requires a
-  future implementation after that fixed-contract gate, not just an opt-in flag.
+- Bound the Windows agy adapter to `windows_agy_contract.py`: exact verified
+  binary hash, fixed opaque record metadata, ordinary desktop token and owning
+  SID. Reject unsupported versions/contexts before writing account metadata.
+  Revalidate provider changes rather than adding hashes from a version string.
+  Keep Windows shared probing `UNAVAILABLE`; profile support does not authorize
+  concurrency or substitute for a native shared-read implementation.
+- Named credential management is for agy only, not Codex. Prefer Agent-invoked
+  `account import-current` when preserving an existing selected login; do not
+  start a new login without the user's request. No login watcher is required.
 - Use `--credential-profile` for OS-selected profiles; retain the macOS
   `--keychain-profile` option. Do not migrate credentials, account profiles,
   native sessions, or enabling reports across operating systems.
@@ -62,8 +67,8 @@
   concurrency capability does not strengthen that boundary.
 - Fail the shared capability closed when its account revision, `agy` path/hash,
   OS build/architecture, platform verification, probe checks, or explicit
-  user-enable record no longer match. Unproven Windows credential or concurrency
-  contracts keep real Windows multi-account switching and shared reads disabled.
+  user-enable record no longer match. Windows profile access requires its pinned
+  credential contract; Windows shared reads remain disabled independently.
 - Do not run unmanaged `agy`, Antigravity IDE, or another credential-switching
   tool while OS credential compatibility mode owns the fixed provider slot. After a
   managed provider process exits or is cancelled, sync its possibly refreshed

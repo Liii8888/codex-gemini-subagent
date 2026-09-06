@@ -13,9 +13,10 @@ assume a cache path, shebang, or `.py` association.
 
 For Windows invocation, permissions, session ownership, and current limitations,
 read the bundled [platform reference](../../references/platforms.md) before
-running the first command. Windows is experimental: project writes, real deadline
-expiry, and first-time official login have not passed live acceptance. Keep
-normal narrowly scoped host approval; multi-account/shared mode remains disabled.
+running the first command. Windows remains experimental. Named agy accounts use
+the version-bounded native credential adapter described there; shared reads stay
+disabled. Keep normal narrowly scoped host approval and report the remaining
+live acceptance gaps separately.
 
 ## First use
 
@@ -38,8 +39,9 @@ See [setup and configuration](../../README.md) for provider onboarding.
    platform/capability report. On Windows the keys are `task_lifecycle`,
    `credential_storage`, `credential_profiles`, `shared_reads`, and
    `desktop_integration`. Lifecycle is available with `pending-native-acceptance`,
-   storage is `synthetic-tests-only`, profiles/shared reads are unavailable, and
-   desktop integration is pending. Lock/ACL evidence alone is not complete live acceptance. It initializes private
+   storage/profiles require their own native validation, profiles require a
+   verified agy binary and ordinary desktop user, shared reads are unavailable,
+   and desktop integration is pending. Lock/ACL evidence alone is not complete live acceptance. It initializes private
    state; do not run it against the real runtime for a read-only package check.
 2. Run `account list --json` to inspect profiles.
 3. Run `account verify <name> --json`. An Antigravity profile is strictly ready
@@ -61,14 +63,19 @@ the user's requested optional Gemini CLI. `--credential-profile` selects macOS
 Keychain or Windows Credential Manager; `--keychain-profile` remains macOS-only
 compatibility spelling. Explain the unofficial adapter and retain user opt-in.
 
-**Windows gate:** the credential backend has synthetic tests, but the official
-`agy` fixed target, opaque record shape, refresh, and ownership contract lack
-native live proof. Real Windows profile import/login capture/activation,
-multi-account switching, and shared reads must fail closed. Do not enumerate
-credentials, guess a target, or reuse macOS reports to bypass the gate.
-Windows profile add rejects before metadata writes. Shared probing returns
-`UNAVAILABLE` even when explicitly invoked; native Windows behavioral execution
-is not implemented, so probe authorization alone cannot make it available.
+**agy only:** these named profiles save agy credentials, never Codex login
+credentials. An Agent can preserve an existing official login with `account add`
+and `account import-current`; a login watcher is not required. Do not initiate
+another login when the user asked to reuse the current account.
+
+**Windows gate:** the adapter accepts only the verified agy 1.1.27 x64 binary,
+its fixed opaque Credential Manager record, and an ordinary desktop user.
+Unknown binaries, elevated/SSH contexts and profiles owned by another user are
+rejected. The saved records remain in that user's Credential Manager; only
+labels, UUIDs and readiness metadata go to ordinary private files. See the
+[exact contract and evidence boundary](../../references/platforms.md#named-agy-accounts).
+Do not enumerate credentials, guess targets, or reuse macOS reports. Windows
+shared probing remains `UNAVAILABLE`, even when explicitly invoked.
 
 Where the platform contract is proven, configure Antigravity accounts one at a time:
 
@@ -76,7 +83,11 @@ Where the platform contract is proven, configure Antigravity accounts one at a t
 2. Preserve the current official login:
    `account add pro-1 --provider agy --credential-profile`, then
    `account import-current pro-1`.
-3. For each remaining label, run
+3. Save only accounts the user has selected. If a different account is already
+   signed in, use `account import-current <name>` after checking ownership;
+   `--force` explicitly claims an externally changed active slot and requires
+   the user's selection of that account. Do not switch a running worker.
+   When the user actually needs a new official login, for each remaining label run
    `account add <name> --provider agy --credential-profile`, followed by
    `account login <name>` in an interactive terminal. Let the user complete the
    official `agy`/Google browser login, then type `/exit` in the Antigravity TUI

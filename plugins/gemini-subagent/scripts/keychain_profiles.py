@@ -11,9 +11,9 @@ Like the Darwin backend used by ``zalando/go-keyring``, writes run
 provider record is base64-wrapped for that transport.  It therefore never
 appears in process argv, while reads and deletes contain tuple metadata only.
 
-Windows supports lock-only admission for unmanaged system accounts. The generic
-Credential Manager backend has no verified Antigravity item/envelope mapping;
-all production credential operations on that adapter fail closed.
+Windows uses its separately verified, version-bounded Credential Manager
+mapping. Unmanaged system accounts can still use lock-only admission without
+accessing any credential. Shared Windows provider leases remain unavailable.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Protocol, Sequence
@@ -40,7 +41,9 @@ from account_schema import KEYCHAIN_PROFILE_MODE, WINDOWS_PROFILE_MODE
 from windows_credentials import (
     WINDOWS_PROFILE_UNAVAILABLE_REASON,
     WindowsCredentialManagerAccess,
+    WindowsCredentialError,
 )
+import windows_agy_contract
 
 
 SECURITY_BINARY = "/usr/bin/security"
@@ -569,27 +572,80 @@ class SafeMacOSKeychainAccess:
 
 
 class WindowsAntigravityAccess:
-    """Disabled provider mapping above the generic Windows secure store.
-
-    No Keychain tuple is translated into a guessed Windows target. Merely
-    constructing this adapter loads no DLL and reads no credentials. A verified
-    item identifier and record contract are required before implementing any
-    of these methods, including profile deletion or inspection.
-    """
+    """Fixed agy mapping; construction never opens the credential store."""
 
     unavailable_reason = WINDOWS_PROFILE_UNAVAILABLE_REASON
 
-    def __init__(self) -> None:
-        self._backend = WindowsCredentialManagerAccess()
+    def __init__(self, provider_binary: str | Path | None = None) -> None:
+        self.provider_binary = provider_binary
+        self._backend = WindowsCredentialManagerAccess(
+            username=windows_agy_contract.USERNAME, strict_metadata=True,
+        )
+
+    def _target(self, item: KeychainTuple) -> str:
+        if self.provider_binary is None:
+            raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+        if item == ACTIVE_CREDENTIAL:
+            return windows_agy_contract.ACTIVE_TARGET
+        if item.service == PROFILE_SERVICE:
+            try:
+                parsed = uuid.UUID(item.account)
+                if parsed.version == 4 and str(parsed) == item.account:
+                    return windows_agy_contract.PROFILE_TARGET_PREFIX + item.account
+            except (ValueError, TypeError, AttributeError):
+                pass
+        raise CredentialShapeError("Unknown Windows agy credential identifier.")
+
+    def _guard(self) -> None:
+        try:
+            windows_agy_contract.require_binary(self.provider_binary)
+        except WindowsCredentialError as exc:
+            raise ProfilePlatformUnsupportedError(str(exc)) from None
+
+    @staticmethod
+    def _validate(credential: bytearray) -> None:
+        _validate_record(credential)
+        if len(credential) > 2560:
+            raise CredentialShapeError("The Windows agy opaque record is too large.")
 
     def read(self, item: KeychainTuple) -> bytearray | None:
-        raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+        target = self._target(item)
+        self._guard()
+        try:
+            value = self._backend.read(target)
+        except WindowsCredentialError as exc:
+            raise KeychainProfileError(str(exc)) from None
+        if value is not None:
+            try:
+                self._validate(value)
+            except BaseException:
+                _wipe(value)
+                raise
+        return value
 
     def write(self, item: KeychainTuple, credential: bytearray) -> None:
-        raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+        target = self._target(item)
+        self._validate(credential)
+        self._guard()
+        # Refuse to silently discard unexpected provider metadata on overwrite.
+        previous = self.read(item)
+        _wipe(previous)
+        try:
+            self._backend.write(target, credential)
+        except WindowsCredentialError as exc:
+            raise KeychainProfileError(str(exc)) from None
 
     def delete(self, item: KeychainTuple) -> bool:
-        raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+        target = self._target(item)
+        previous = self.read(item)
+        if previous is None:
+            return False
+        _wipe(previous)
+        self._guard()
+        try:
+            return self._backend.delete(target)
+        except WindowsCredentialError as exc:
+            raise KeychainProfileError(str(exc)) from None
 
 
 def _trim_ascii_whitespace(value: bytearray) -> None:
@@ -940,8 +996,10 @@ class KeychainProfileStore:
     @property
     def capability(self) -> ProfileStoreCapability:
         if isinstance(self._access, WindowsAntigravityAccess):
+            enabled = self._access.provider_binary is not None
             return ProfileStoreCapability(
-                WINDOWS_PROFILE_MODE, False, WINDOWS_PROFILE_UNAVAILABLE_REASON, False
+                WINDOWS_PROFILE_MODE, enabled,
+                None if enabled else WINDOWS_PROFILE_UNAVAILABLE_REASON, False
             )
         return ProfileStoreCapability(
             KEYCHAIN_PROFILE_MODE, True, None, not platform_fs.IS_WINDOWS
@@ -957,6 +1015,7 @@ class KeychainProfileStore:
         on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
         on_process_stop: Callable[[subprocess.Popen[bytes]], None] | None = None,
         command_hard_deadline: float | None = None,
+        provider_binary: str | Path | None = None,
     ) -> "KeychainProfileStore":
         runner = SubprocessCommandRunner(
             command_timeout_seconds,
@@ -977,8 +1036,9 @@ class KeychainProfileStore:
         on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
         on_process_stop: Callable[[subprocess.Popen[bytes]], None] | None = None,
         command_hard_deadline: float | None = None,
+        provider_binary: str | Path | None = None,
     ) -> "KeychainProfileStore":
-        """Create lock-only admission with a disabled production adapter.
+        """Create admission with optional version-bounded profile access.
 
         Keyword arguments match macos(). There is no security subprocess on
         Windows, so command callbacks/deadlines have nothing to control here.
@@ -986,7 +1046,7 @@ class KeychainProfileStore:
         process guardian owns provider lifetime and the admission boundary.
         """
 
-        return cls(WindowsAntigravityAccess(), lock_path=lock_path)
+        return cls(WindowsAntigravityAccess(provider_binary), lock_path=lock_path)
 
     @classmethod
     def native(
@@ -998,6 +1058,7 @@ class KeychainProfileStore:
         on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
         on_process_stop: Callable[[subprocess.Popen[bytes]], None] | None = None,
         command_hard_deadline: float | None = None,
+        provider_binary: str | Path | None = None,
     ) -> "KeychainProfileStore":
         """Select an OS adapter without probing the native credential store."""
 
@@ -1016,6 +1077,7 @@ class KeychainProfileStore:
             on_process_start=on_process_start,
             on_process_stop=on_process_stop,
             command_hard_deadline=command_hard_deadline,
+            provider_binary=provider_binary,
         )
 
     def _current_lease(

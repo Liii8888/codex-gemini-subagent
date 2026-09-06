@@ -13,9 +13,10 @@ assume a cache path, shebang, or `.py` association.
 
 For Windows invocation, permissions, session ownership, and current limitations,
 read the bundled [platform reference](../../references/platforms.md) before
-running the first command. Windows is experimental: project writes, real deadline
-expiry, and first-time official login have not passed live acceptance. Keep
-normal narrowly scoped host approval; multi-account/shared mode remains disabled.
+running the first command. Windows remains experimental. Named agy accounts use
+the version-bounded native credential adapter described there; shared reads stay
+disabled. Keep normal narrowly scoped host approval and report the remaining
+live acceptance gaps separately.
 
 ## Commands
 
@@ -50,8 +51,9 @@ normal narrowly scoped host approval; multi-account/shared mode remains disabled
 - `doctor --json` initializes local runtime state and reports `platform`. Windows
   `capabilities` keys are `task_lifecycle`, `credential_storage`,
   `credential_profiles`, `shared_reads`, and `desktop_integration`. Lifecycle is
-  available with `pending-native-acceptance`, storage is `synthetic-tests-only`,
-  profiles/shared reads are unavailable, and desktop integration is pending.
+  available with `pending-native-acceptance`; native storage/profile validation
+  is separate, profiles require a verified agy binary and ordinary desktop user,
+  shared reads are unavailable, and desktop integration is pending.
   The 23H2 lock/ACL evidence is not release acceptance. Do not use real doctor for read-only
   package checks. `doctor --deep --json` additionally performs a live quota probe
   and requires authorization for provider access.
@@ -59,12 +61,12 @@ normal narrowly scoped host approval; multi-account/shared mode remains disabled
 Windows 11 23H2+ x64 with PowerShell is the prerelease adaptation target;
 **Windows acceptance is pending**. The runtime belongs in the real user's
 LocalAppData, and native sessions/credentials are not migrated from another OS.
-Synthetic Windows Credential Manager tests do not prove the fixed official
-`agy` record contract. Report real Windows multi-account/shared mode as blocked;
-do not enumerate credentials, trigger a probe, or reuse a macOS enabling report.
-Windows profile add rejects before metadata writes. The shared probe returns
-`UNAVAILABLE` even on an explicit run; Windows behavioral execution is not
-implemented pending the fixed provider contract.
+Windows named agy profiles are bounded by the verified provider binary and
+current OS user. `account list` shows saved labels and readiness without token
+contents. Report binary drift, ownership mismatch and missing readiness as
+unavailable; never enable shared reads from profile availability. Consult the
+[bundled native account reference](../../references/platforms.md#named-agy-accounts)
+for the current evidence boundary.
 
 Antigravity work defaults to one serialized worker. A capability-gated shared
 epoch may contain only same-profile, same-account UUID/revision Antigravity

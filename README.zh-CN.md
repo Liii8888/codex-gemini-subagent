@@ -10,10 +10,13 @@ Windows 正式目标为 Windows 11 23H2+ x64、PowerShell、原生 Python 3.10+ 
 现有 23H2 客户端可用于正式版验收；24H2+ 测试属于后续覆盖，不再是发布前提。
 
 23H2 普通用户测试已经取得原生离线通过、Codex 控制 agy 读取和同会话续接的证据。
-**Windows 尚未通过发布验收：普通项目写入失败、真实超时未触发、官方首次登录未独立验证。**
+**Windows 尚未通过发布验收：普通项目写入失败、真实超时未触发。**
+官方首次登录仍未独立验证；本次发布允许复用已明确授权、仅用于测试的既有凭据完成认证检查。
 Codex 集成保留了正常的精确命令审批，不代表全部操作均在沙箱内免审批运行。
 
-Windows 多账号切换和共享读保持禁用。插件使用你自己安装的官方 CLI 和账号，
+开发分支增加了由 Agent 保存、选择 **agy** 账号的功能：Windows 使用本机凭据管理器，
+限于已核验的 agy 1.1.27 x64 和普通桌面用户。这项改动尚未包含在已发布的 alpha.1 中。
+它不管理 Codex 的登录凭据；Windows 共享读仍关闭。插件使用你自己安装的官方 CLI 和账号，
 不附带 Google 程序、凭据或 API 代理。详见包内的
 [平台说明](plugins/gemini-subagent/references/platforms.md)和[版本绑定验证记录](docs/VALIDATION.md)。
 
@@ -36,7 +39,8 @@ Windows 多账号切换和共享读保持禁用。插件使用你自己安装的
 - Gemini session 和 Antigravity conversation 原生续接，绑定原账号和项目。
 - 通过官方 `agy /usage` 查询额度及重置时间。
 - 可选的操作系统凭据存储、多账号管理、冷却和受限的失败换号；macOS 使用 Keychain，
-  Windows Credential Manager 的真实账号接入仍受原生证据门槛限制。
+  开发中的 Windows 账号功能限定于已核验的原生凭据契约。
+  已登录时由 Agent 调用 `account import-current` 保存，不要求后台自动捕获登录。
 - 默认串行；同账号 Antigravity 只读双并发需要真实探针通过并由用户显式开启。
 - 纯 Python 标准库运行器，无常驻 daemon、无前端。
 

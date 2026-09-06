@@ -64,9 +64,10 @@ Submission to the official plugin directory is a separate milestone.
 Only merge and publish a new `v0.4.0` after the single-account Windows 11 23H2+
 x64 native gate passes. The retained 23H2 client is an accepted test target;
 24H2+ testing is additional coverage, not a stable-release prerequisite. Record
-the actual tested build without claiming untested-build results. Fresh official
-Codex/agy login cannot be replaced with imported credentials; preserve normal
-permissions and obtain actual write, cancel, and timeout evidence. A new live
+the actual tested build without claiming untested-build results. The owner
+authorized reuse of existing test credentials and waived fresh-login acceptance
+for this release; disclose that first-time Windows onboarding remains untested.
+Preserve normal permissions and obtain actual write, cancel, and timeout evidence. A new live
 batch is limited to six top-level tasks, 120 seconds each, with Codex fixed to
 `gpt-5.6-luna`; no automatic account/model switching or retry loop.
 

@@ -7,8 +7,9 @@ repository and set `SUBAGENT` to the absolute path of
 **0.4.0-alpha.1 is a prerelease; native Windows acceptance is pending.** The
 adaptation targets Windows 11 23H2+ x64, PowerShell, and native Python 3.10+ x64.
 Use official `agy` for a new setup, preserving an existing or requested Gemini
-CLI configuration. Real Windows multi-account switching/shared reads remain
-blocked until the official fixed credential contract has native evidence.
+CLI configuration. Development Windows named agy profiles require the pinned
+native contract described below; shared reads remain disabled. These changes
+are not present in the immutable alpha.1 release.
 
 Read the bundled [platform reference](references/platforms.md). The 23H2 lab
 proved offline native lifecycle and actual Codex-controlled reads/resume, but
@@ -53,8 +54,9 @@ GEMINI_SUBAGENT_ALLOWED_ROOTS="$HOME/Projects" python3 "$SUBAGENT" doctor --json
 Inspect `platform` and, on Windows, `capabilities.task_lifecycle`,
 `credential_storage`, `credential_profiles`, `shared_reads`, and
 `desktop_integration`. Lifecycle is available with `pending-native-acceptance`;
-storage is `synthetic-tests-only`; profiles/shared reads are unavailable and
-desktop integration is pending. The 23H2 process/lock/ACL evidence does not
+storage/profiles require native validation; profiles require a verified agy
+binary and ordinary desktop user, shared reads are unavailable, and desktop
+integration is pending. The 23H2 process/lock/ACL evidence does not
 establish complete live acceptance. An exit code alone does not establish readiness.
 
 Multiple roots are separated by the OS path separator (`:` on macOS, `;` on Windows). Existing
@@ -90,13 +92,12 @@ exposed in provider or supervisor process arguments.
 If it is not on `PATH`, set `GEMINI_SUBAGENT_AGY_BIN` to its absolute executable
 path before initialization, or pass `--binary` when adding an account.
 
-The named-profile examples below apply only where the OS's fixed provider
-credential contract is proven (the existing macOS path). Windows Credential
-Manager has synthetic backend coverage, but the official `agy` fixed target,
-record shape, refresh, and ownership contract remains unproven. **Do not run real
-Windows import/login capture/activation or enable multi-account/shared mode.**
-Windows `account add --credential-profile` rejects before writing account
-metadata. Do not enumerate records to discover a target.
+Named profiles manage **agy accounts only**, never Codex authentication.
+An Agent can save the current selected login without prompting another login.
+Windows requires the exact verified agy 1.1.27 x64 binary and an ordinary desktop
+user; unsupported binaries, elevated/SSH contexts and another user's metadata
+are rejected. See the [native contract and evidence limits](references/platforms.md#named-agy-accounts).
+Do not enumerate records or put tokens in files, prompts or command arguments.
 
 Preserve your existing signed-in account after opting into the adapter:
 
@@ -108,7 +109,17 @@ python3 "$SUBAGENT" account default personal
 python3 "$SUBAGENT" quota --account personal --json
 ```
 
-For another account, add another label and complete a separate official login:
+To select a saved account, use `account list --json`, `account activate <name>`
+and `account default <name>`, or submit a job with `--account <name>`.
+Import, switching and provider execution share the canonical exclusive lock.
+A token refreshed by a managed command is captured back to its owning profile
+before the switch lock is released. A saved token is not a promise that the
+provider will keep it valid; failed official verification clears readiness.
+
+For another account already signed in through an authorized official flow,
+add its label and import it. An externally changed slot requires an explicit
+ownership decision before `--force`. When a new login is actually requested,
+add another label and complete the official flow:
 
 ```bash
 python3 "$SUBAGENT" account add secondary --provider agy --credential-profile
@@ -215,8 +226,8 @@ running it exercises provider work, cancellation, and credential refresh and
 requires explicit user authorization. No private report is shipped here, and
 mock test results cannot enable concurrency.
 
-Windows shared reads remain disabled: the official fixed credential contract
-is unproven and no Windows behavioral probe execution is implemented. Even an
+Windows shared reads remain disabled: native shared-read behavioral probe
+execution is not implemented or accepted. Named profile support does not enable it. Even an
 explicit probe invocation returns `UNAVAILABLE`. A macOS report cannot be
 imported or used to enable them. See the exact
 [native Windows live gate](references/platforms.md#stable-windows-gate).

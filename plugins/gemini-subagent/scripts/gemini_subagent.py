@@ -38,6 +38,7 @@ from account_schema import (
     AccountSchemaError,
     DECLARED_IDENTITY_SOURCE,
     KEYCHAIN_PROFILE_MODE,
+    WINDOWS_PROFILE_MODE,
     UNMANAGED_AGY_PROFILE_MODE,
     find_account_by_id,
     migrate_accounts_state,
@@ -76,6 +77,8 @@ from platform_fs import (
     private_mkdir, secure_chmod, file_is_private, current_user_owns,
 )
 import platform_process
+import windows_agy_contract
+from windows_credentials import WindowsCredentialError
 from platform_process import (
     current_group, KILL_SIGNAL, popen as managed_popen, run as managed_run,
     call as managed_call,
@@ -589,7 +592,7 @@ def shared_read_capability_status(account: dict[str, Any]) -> dict[str, Any]:
 
     runtime_config = config()
     if IS_WINDOWS:
-        return {"eligible": False, "reason": "windows_provider_contract_unverified", "probe": None}
+        return {"eligible": False, "reason": "windows_shared_behavior_unverified", "probe": None}
     if (
         runtime_config.get("concurrency_mode") != "same-account-read-shared-v1"
         or runtime_config.get("require_concurrency_probe") is not True
@@ -939,12 +942,15 @@ def save_auth_slot(
         "dirty": bool(dirty),
         "updated_at": now_iso(),
     }
+    if IS_WINDOWS:
+        payload["windows_context"] = platform_process.current_context()
     atomic_write_json(auth_slot_path(), payload)
     return payload
 
 
 def keychain_store(
     *,
+    account: dict[str, Any] | None = None,
     job_id: str | None = None,
     child: list[subprocess.Popen[Any] | None] | None = None,
     cancelled: threading.Event | None = None,
@@ -993,17 +999,37 @@ def keychain_store(
         value is not None
         for value in (job_id, child, cancelled, marker_path, overall_deadline)
     )
+    options: dict[str, Any] = {}
+    if IS_WINDOWS and account is not None and account_is_keychain_profile(account):
+        require_windows_profile_account(account)
+        options["provider_binary"] = account["binary"]
     return KeychainProfileStore.native(
         lock_path=auth_lock_path(),
         command_wait_callback=command_wait_callback if controlled else None,
         on_process_start=command_started if controlled else None,
         on_process_stop=command_stopped if controlled else None,
         command_hard_deadline=overall_deadline,
+        **options,
     )
 
 
+def require_windows_profile_account(account: dict[str, Any]) -> None:
+    try:
+        evidence = windows_agy_contract.require_binary(account.get("binary", ""))
+    except WindowsCredentialError as exc:
+        raise BridgeError(str(exc), 2) from None
+    if (
+        account.get("profile_mode") != WINDOWS_PROFILE_MODE
+        or account.get("windows_owner_sid") != evidence["user_sid"]
+        or account.get("windows_credential_contract") != evidence["contract"]
+    ):
+        raise BridgeError("Windows agy profile belongs to a different user or platform contract.", 2)
+
+
 def account_profile_key(account: dict[str, Any]) -> str:
-    if (IS_WINDOWS or account.get("profile_mode") == "windows-credential-manager-vault"):
+    if IS_WINDOWS:
+        require_windows_profile_account(account)
+    elif account.get("profile_mode") == WINDOWS_PROFILE_MODE:
         raise BridgeError("Credential profile activation is unverified on this platform; credentials cannot be migrated between operating systems.")
     account_id = account.get("id")
     try:
@@ -1763,7 +1789,7 @@ def recover_provider_lease(job: dict[str, Any]) -> bool:
         return recover_shared_provider_epoch(job)
     terminate_provider_lease_group(job, record)
     if job.get("provider") == "agy" and job.get("account_id"):
-        store = keychain_store()
+        store = keychain_store(account=account_by_id(str(job["account_id"])))
         with store.lease() as auth_lease:
             reconcile_auth_slot(auth_lease)
     _remove_provider_lease(job, record)
@@ -1833,7 +1859,7 @@ def recover_shared_provider_epoch(job: dict[str, Any]) -> bool:
         account = account_by_id(pin[0])
         if int(account.get("credential_revision", -1)) != pin[1]:
             raise BridgeError("Shared auth recovery encountered a new credential revision.")
-        store = keychain_store()
+        store = keychain_store(account=account)
         with store.lease() as auth_lease:
             # Re-read after SH drain.  A guardian that was stopping above may
             # have published its final provider-absent transition meanwhile.
@@ -2301,7 +2327,12 @@ def account_ready_for_jobs(account: dict[str, Any]) -> bool:
     if not account.get("enabled", True) or not binary_exists(account.get("binary", "")):
         return False
     if account_is_keychain_profile(account):
-        if IS_WINDOWS or account.get("profile_mode") != KEYCHAIN_PROFILE_MODE:
+        if IS_WINDOWS:
+            try:
+                require_windows_profile_account(account)
+            except BridgeError:
+                return False
+        elif account.get("profile_mode") != KEYCHAIN_PROFILE_MODE:
             return False
         return bool(
             account.get("credential_state") == "ready"
@@ -3171,6 +3202,7 @@ def recover_login_transaction(lease: Any) -> dict[str, Any] | None:
     if record is None:
         return None
 
+    require_windows_context(record)
     target = _login_journal_target(record)
     target_key = account_profile_key(target)
     recovery_key = str(record["recovery_profile_uuid"])
@@ -3247,6 +3279,7 @@ def reconcile_auth_slot(lease: Any) -> dict[str, Any] | None:
         raise BridgeError("The active auth slot uses an obsolete credential revision.")
     key = account_profile_key(account)
     if slot.get("dirty"):
+        require_windows_context(slot)
         lease.capture(key, overwrite=True)
         save_auth_slot(account, dirty=False)
         return account
@@ -3298,6 +3331,7 @@ def sync_account_under_lease(
     if not account_is_keychain_profile(account):
         return
     slot = load_auth_slot()
+    require_windows_context(slot)
     if slot.get("active_account_id") != account.get("id"):
         raise BridgeError("Refusing to sync a credential into the wrong Keychain profile.")
     if int(slot.get("credential_revision") or -1) != int(
@@ -4436,6 +4470,7 @@ def worker_main(
 
         if job["provider"] == "agy":
             store = keychain_store(
+                account=account,
                 job_id=job_id,
                 child=child,
                 cancelled=cancelled,
@@ -4478,6 +4513,7 @@ def worker_main(
                 # cancellation: the provider group is gone and credential
                 # capture is a bounded recovery step, not new model work.
                 recovery_store = keychain_store(
+                    account=account,
                     marker_path=marker_path,
                     overall_deadline=time.monotonic() + 40.0,
                 )
@@ -5481,7 +5517,7 @@ def refresh_quota(account: dict[str, Any], timeout: int = 60) -> dict[str, Any]:
     if account.get("provider") != "agy":
         return _refresh_quota_under_lease(account, None, timeout)
     ensure_exclusive_auth_admission("refresh Antigravity quota")
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "refresh Antigravity quota"
@@ -5567,7 +5603,7 @@ def cmd_quota(args: argparse.Namespace) -> int:
             with exclusive_auth_transition("query quota"):
                 yield None
             return
-        store = keychain_store()
+        store = keychain_store(account=agy_selected[0])
         with exclusive_auth_lease(store, "query quota") as lease:
             yield lease
 
@@ -5694,8 +5730,14 @@ def cmd_account_list(args: argparse.Namespace) -> int:
 
 
 def cmd_account_add(args: argparse.Namespace) -> int:
+    windows_evidence = None
     if IS_WINDOWS and args.keychain_profile:
-        raise BridgeError("Windows credential profiles are unavailable until the official agy credential record contract and activation behavior are verified. Use antigravity-system with the official login.", 2)
+        try:
+            windows_evidence = windows_agy_contract.require_binary(
+                normalize_binary(args.binary or _find_default_binary(args.provider))
+            )
+        except WindowsCredentialError as exc:
+            raise BridgeError(str(exc), 2) from None
     if not ACCOUNT_NAME_RE.fullmatch(args.name):
         raise BridgeError("Account name must use 1-64 letters, digits, dots, underscores, or dashes.", 2)
     if args.provider == "agy" and args.isolated:
@@ -5734,7 +5776,7 @@ def cmd_account_add(args: argparse.Namespace) -> int:
                     "a second label would not isolate another login."
                 )
         profile_mode = (
-            KEYCHAIN_PROFILE_MODE
+            (WINDOWS_PROFILE_MODE if IS_WINDOWS else KEYCHAIN_PROFILE_MODE)
             if args.keychain_profile
             else "isolated" if args.isolated else (
                 UNMANAGED_AGY_PROFILE_MODE if args.provider == "agy" else "system"
@@ -5757,6 +5799,9 @@ def cmd_account_add(args: argparse.Namespace) -> int:
         if args.isolated:
             profile = Path(args.profile_root).expanduser().resolve() if args.profile_root else runtime_root() / "profiles" / args.name
             account["profile_root"] = str(profile)
+        if windows_evidence is not None:
+            account["windows_owner_sid"] = windows_evidence["user_sid"]
+            account["windows_credential_contract"] = windows_evidence["contract"]
         state.setdefault("accounts", {})[args.name] = account
         if args.keychain_profile:
             state.setdefault("routing", {}).setdefault("agy_order", []).append(account["id"])
@@ -5773,7 +5818,9 @@ def cmd_account_add(args: argparse.Namespace) -> int:
         print_json(public_account(account, default=False, cooling=False))
     else:
         print(f"Added {args.name} ({args.provider}/{account['profile_mode']}).")
-        if args.isolated or args.keychain_profile:
+        if args.keychain_profile:
+            print(f"Existing login: {SCRIPT_PATH} account import-current {args.name}")
+        elif args.isolated:
             print(f"Next: {SCRIPT_PATH} account login {args.name}")
     return 0
 
@@ -5783,7 +5830,7 @@ def cmd_account_import_current(args: argparse.Namespace) -> int:
     if not account_is_keychain_profile(account):
         raise BridgeError("account import-current requires an Antigravity Keychain profile.")
     ensure_exclusive_auth_admission("import Antigravity credentials")
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "import Antigravity credentials"
@@ -5836,6 +5883,7 @@ def cmd_account_import_current(args: argparse.Namespace) -> int:
                     previous_account_revision=None,
                     recovery_profile_uuid=recovery_key,
                     target_backup_uuid=backup_key,
+                    windows_context=platform_process.current_context() if IS_WINDOWS else None,
                 )
                 write_login_journal(login_transaction_path(), journal)
                 lease.capture(recovery_key)
@@ -5883,7 +5931,7 @@ def cmd_account_activate(args: argparse.Namespace) -> int:
     if not account_is_keychain_profile(account):
         raise BridgeError("account activate requires an Antigravity Keychain profile.")
     ensure_exclusive_auth_admission("activate an Antigravity account")
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "activate an Antigravity account"
@@ -6107,7 +6155,7 @@ def verify_account(account: dict[str, Any], timeout: int = 30) -> dict[str, Any]
     # not leave an explicitly failed verification schedulable under an older
     # successful result.
     _record_strict_agy_readiness(account, ready=False)
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "verify an Antigravity account"
@@ -6267,7 +6315,7 @@ def cmd_account_login(args: argparse.Namespace) -> int:
             "in agy for a clean exit. "
             "Gemini Subagent never receives your password or 2FA code."
         )
-        store = keychain_store()
+        store = keychain_store(account=account)
         try:
             with exclusive_auth_lease(
                 store, "log in to an Antigravity account"
@@ -6305,6 +6353,7 @@ def cmd_account_login(args: argparse.Namespace) -> int:
                         ),
                         recovery_profile_uuid=recovery_key,
                         target_backup_uuid=backup_key,
+                        windows_context=platform_process.current_context() if IS_WINDOWS else None,
                     )
                     write_login_journal(login_transaction_path(), journal)
 
@@ -6366,7 +6415,8 @@ def cmd_account_login(args: argparse.Namespace) -> int:
             raise
         except (KeychainProfileError, LoginJournalError, OSError) as exc:
             raise BridgeError(f"Antigravity login transaction failed: {exc}") from exc
-        print(f"Captured and activated {account['name']} in macOS Keychain.")
+        store_name = "Windows Credential Manager" if IS_WINDOWS else "macOS Keychain"
+        print(f"Captured and activated {account['name']} in {store_name}.")
         return 0
     if account.get("provider") == "agy":
         reject_unmanaged_agy_with_managed_profiles(account, "log in")
@@ -6378,7 +6428,7 @@ def cmd_account_login(args: argparse.Namespace) -> int:
             "Complete authentication in the official CLI/browser. Gemini Subagent will not read the token."
         )
         try:
-            store = keychain_store()
+            store = keychain_store(account=account)
             with exclusive_auth_lease(
                 store, "log in to an unmanaged Antigravity account"
             ) as lease:
@@ -6606,13 +6656,15 @@ def platform_capabilities() -> dict[str, Any]:
             "credential_profiles": {"available": sys.platform == "darwin"},
             "shared_reads": {"available": sys.platform == "darwin", "requires_user_probe": True},
         }
-    reason = "windows_provider_contract_unverified"
+    reason = "windows_shared_behavior_unverified"
     return {
         "task_lifecycle": {"available": True, "implementation": "windows-job-objects",
                            "validation": "pending-native-acceptance"},
         "credential_storage": {"available": True, "implementation": "windows-credential-manager",
-                               "validation": "synthetic-tests-only"},
-        "credential_profiles": {"available": False, "reason": reason},
+                               "validation": "native-validation-required"},
+        "credential_profiles": {"available": True, "implementation": "windows-credential-manager-vault",
+                                "requires_verified_agy_binary": True, "requires_ordinary_desktop_user": True,
+                                "validation": "native-validation-required"},
         "shared_reads": {"available": False, "reason": reason, "requires_user_probe": True},
         "desktop_integration": {"validation": "pending-native-acceptance"},
     }

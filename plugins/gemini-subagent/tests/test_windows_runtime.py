@@ -25,7 +25,7 @@ class WindowsCapabilityBoundaryTests(unittest.TestCase):
     def test_windows_account_profile_request_fails_before_state_write(self):
         args = runtime.build_parser().parse_args(
             ["account", "add", "new", "--provider", "agy", "--credential-profile"])
-        with mock.patch.object(runtime, "IS_WINDOWS", True), mock.patch.object(runtime, "save_accounts") as save:
+        with mock.patch.object(runtime, "IS_WINDOWS", True), mock.patch.object(runtime.windows_agy_contract, "require_binary", side_effect=runtime.WindowsCredentialError("unverified contract")), mock.patch.object(runtime, "save_accounts") as save:
             with self.assertRaisesRegex(runtime.BridgeError, "contract"):
                 runtime.cmd_account_add(args)
             save.assert_not_called()
@@ -39,7 +39,9 @@ class WindowsCapabilityBoundaryTests(unittest.TestCase):
     def test_windows_doctor_does_not_claim_provider_acceptance(self):
         with mock.patch.object(runtime, "IS_WINDOWS", True):
             result = runtime.platform_capabilities()
-        self.assertFalse(result["credential_profiles"]["available"])
+        self.assertTrue(result["credential_profiles"]["available"])
+        self.assertTrue(result["credential_profiles"]["requires_verified_agy_binary"])
+        self.assertEqual(result["credential_profiles"]["validation"], "native-validation-required")
         self.assertFalse(result["shared_reads"]["available"])
         self.assertEqual(result["task_lifecycle"]["validation"], "pending-native-acceptance")
 

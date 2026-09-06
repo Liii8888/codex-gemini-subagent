@@ -298,12 +298,12 @@ class WindowsProfileFactoryTests(unittest.TestCase):
             self.assertEqual(store.capability.reason, credentials.WINDOWS_PROFILE_UNAVAILABLE_REASON)
             self.assertFalse(self.lock.exists())
             for operation in ("capture", "restore", "verify", "delete"):
-                with self.assertRaisesRegex(profiles.ProfilePlatformUnsupportedError, "not been verified"):
+                with self.assertRaisesRegex(profiles.ProfilePlatformUnsupportedError, "no provider binding"):
                     getattr(store, operation)(str(uuid.uuid4()))
             with store.lease() as lease:
-                with self.assertRaisesRegex(profiles.ProfilePlatformUnsupportedError, "not been verified"):
+                with self.assertRaisesRegex(profiles.ProfilePlatformUnsupportedError, "no provider binding"):
                     lease.remove_active()
-                with self.assertRaisesRegex(profiles.ProfilePlatformUnsupportedError, "not been verified"):
+                with self.assertRaisesRegex(profiles.ProfilePlatformUnsupportedError, "no provider binding"):
                     with lease.login_transaction(str(uuid.uuid4())):
                         self.fail("disabled provider adapter must never yield a login transaction")
             access = store._access
