@@ -4,7 +4,7 @@ import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child 
 
 import argparse
 import contextlib
-import fcntl
+import platform_fs as fcntl
 import io
 import os
 import signal
@@ -49,6 +49,7 @@ def kill_exact_group(pid: int | None) -> None:
             os.killpg(pid, signal.SIGKILL)
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class ProcessLifecycleRegressionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(
@@ -826,7 +827,7 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
             gemini_subagent.atomic_write_json(marker_path, live_marker)
             return result
 
-        def signal_test_group(pgid: int, sig: signal.Signals) -> None:
+        def signal_test_group(pgid: int, sig: signal.Signals, **_kwargs) -> None:
             if provider is None or pgid != provider.pid:
                 real_signal_managed_group(pgid, sig)
                 return

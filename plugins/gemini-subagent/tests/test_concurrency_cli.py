@@ -56,6 +56,7 @@ REQUIRED_CHECKS = (
 )
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class ConcurrencyCLIContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(

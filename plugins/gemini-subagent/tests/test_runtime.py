@@ -5,6 +5,7 @@ import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child 
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -35,7 +36,7 @@ class GeminiSubagentRuntimeTests(unittest.TestCase):
 
     def run_bridge(self, *args: str, expect: int = 0, timeout: int = 30) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(
-            [str(BRIDGE), *args],
+            [sys.executable, str(BRIDGE), *args],
             cwd=PROJECT,
             env=self.env,
             stdout=subprocess.PIPE,

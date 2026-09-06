@@ -18,6 +18,7 @@ BRIDGE = PROJECT / "scripts" / "gemini_subagent.py"
 MOCK = PROJECT / "tests" / "mock_google_cli.py"
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class GeminiLoginLockTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(

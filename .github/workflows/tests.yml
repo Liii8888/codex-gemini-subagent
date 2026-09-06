@@ -2,22 +2,46 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/public-release]
+    tags: ['v*']
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  macos:
-    runs-on: macos-latest
+  mock:
+    name: Mock (${{ matrix.os }}, Python ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        python: ['3.10', '3.14']
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python }}
+      - name: Record tested environment
+        run: |
+          git rev-parse HEAD
+          python -c "import os,platform,sys; print(platform.platform()); print(sys.version); print('Runner image:',os.environ.get('ImageOS'),os.environ.get('ImageVersion'))"
       - name: Validate distribution
-        run: python3 tools/check_package.py
+        run: python tools/check_package.py
       - name: Test with mock providers
-        run: python3 -W error::ResourceWarning -m unittest discover -s plugins/gemini-subagent/tests -v
+        run: python -W error::ResourceWarning -m unittest discover -s plugins/gemini-subagent/tests -v
+      - name: Parse Windows acceptance tooling
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $parseErrors = $null
+          $tokens = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'tools/validate_windows.ps1'), [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -ne 0) { throw 'Windows validation script has syntax errors.' }

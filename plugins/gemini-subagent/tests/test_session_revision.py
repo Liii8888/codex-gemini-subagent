@@ -113,7 +113,7 @@ class SessionRevisionTests(unittest.TestCase):
         with (
             mock.patch.object(gemini_subagent.subprocess, "run") as run,
             mock.patch.object(gemini_subagent.subprocess, "Popen") as popen,
-            mock.patch.object(gemini_subagent.subprocess, "call") as call,
+            mock.patch.object(gemini_subagent, "managed_call") as call,
         ):
             for provider, account in cases:
                 for missing, expected in (
@@ -157,7 +157,7 @@ class SessionRevisionTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                gemini_subagent.subprocess, "call", side_effect=successful_login
+                gemini_subagent, "managed_call", side_effect=successful_login
             ) as call,
             mock.patch.object(gemini_subagent.subprocess, "run") as run,
             mock.patch.object(gemini_subagent.subprocess, "Popen") as popen,
@@ -190,7 +190,7 @@ class SessionRevisionTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                gemini_subagent.subprocess, "call", side_effect=failed_login
+                gemini_subagent, "managed_call", side_effect=failed_login
             ) as call,
             mock.patch.object(gemini_subagent.subprocess, "run") as run,
             mock.patch.object(gemini_subagent.subprocess, "Popen") as popen,
@@ -233,8 +233,8 @@ class SessionRevisionTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                gemini_subagent.subprocess,
-                "call",
+                gemini_subagent,
+                "managed_call",
                 side_effect=retry_same_account,
             ) as same_call,
             mock.patch.object(gemini_subagent.subprocess, "run") as run,
@@ -255,7 +255,7 @@ class SessionRevisionTests(unittest.TestCase):
         pending_again = gemini_subagent._begin_gemini_login(same_after)
         self.assertEqual(pending_again["credential_state"], "login-pending")
         with (
-            mock.patch.object(gemini_subagent.subprocess, "call") as other_call,
+            mock.patch.object(gemini_subagent, "managed_call") as other_call,
             mock.patch.object(gemini_subagent.subprocess, "run") as run,
             mock.patch.object(gemini_subagent.subprocess, "Popen") as popen,
         ):

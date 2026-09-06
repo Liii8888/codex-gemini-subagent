@@ -146,8 +146,9 @@ class ProviderCleanupTests(unittest.TestCase):
             proc = spawned[0]
             self.assertIsNone(child[0])
             self.assertIsNotNone(proc.returncode)
-            with self.assertRaises(ChildProcessError):
-                os.waitpid(proc.pid, os.WNOHANG)
+            if os.name != "nt":
+                with self.assertRaises(ChildProcessError):
+                    os.waitpid(proc.pid, os.WNOHANG)
             self.assertFalse(gemini_subagent.process_alive(proc.pid))
             self.assertFalse(provider_ready.exists())
         finally:

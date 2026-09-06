@@ -20,6 +20,7 @@ import runtime_paths
 
 
 class PublicDefaultsTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_production_auth_lock_ignores_test_flag_and_runtime_overrides(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve()
@@ -44,6 +45,7 @@ print(json.dumps(locks))
             expected = runtime_paths.default_runtime_root(home) / ".antigravity-keychain.lock"
             self.assertEqual(json.loads(result.stdout), [str(expected)] * 4)
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_fresh_mac_uses_user_application_support_without_creating_files(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve()
@@ -52,6 +54,7 @@ print(json.dumps(locks))
             self.assertEqual(root, home / "Library/Application Support/Gemini-Subagent/runtime")
             self.assertFalse(root.exists())
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_existing_runtime_preserves_accounts_and_auth_lock_location(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve()
@@ -62,6 +65,7 @@ print(json.dumps(locks))
             self.assertEqual(runtime_paths.default_runtime_root(home), previous)
             self.assertEqual(marker.read_text(), '{"test": true}')
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_canonical_auth_domain_ignores_home_and_job_runtime_overrides(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve()

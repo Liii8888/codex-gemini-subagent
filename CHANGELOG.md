@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.4.0-alpha.1 — 2026-09-07 (prerelease)
+
+Native Windows adaptation target: Windows 11 24H2+ x64, PowerShell, and native
+Python 3.10+. macOS remains a target; `agy` is primary for new setups and the
+optional official Gemini CLI workflow is preserved.
+
+- Document native background lifecycle, OS locks, private Windows ACLs, and
+  platform/capability diagnostics without granting administrator or Full Access.
+- Introduce the OS-selected `--credential-profile` spelling; retain the macOS
+  `--keychain-profile` option for compatibility.
+- Specify the real OS user's LocalAppData runtime and prohibit cross-OS
+  credential or native-session migration.
+- Add Windows validation tooling with local package/mock checks and sanitized
+  JSON, usable without Codex. Live and shared options produce instructions only.
+- Configure CI for the same mock discovery on macOS and Windows with Python 3.10 and 3.14;
+  read package sources as UTF-8 and check executable bits only on POSIX.
+
+- Bind native job and lease ownership to Windows SID, Session, and logon LUID;
+  refuse uncertain cross-session cleanup and preserve the original records.
+- Add the reversible lab ledger, cleanup conflict checks, and same-context
+  synthetic credential cleanup tests.
+- Keep one set of five skills, with bundled platform instructions and checked
+  local references. Add committed-source archives and SHA-256 manifests.
+- Preserve `v0.3.0` as the stable macOS channel; Windows installs select this
+  preview explicitly. Publish with Git and GitHub CLI directly.
+
+The 2026-09-06 **23H2 compatibility** snapshot passed required native offline
+checks and demonstrated Codex CLI 0.153.4 / `gpt-5.6-luna` controlling agy 1.1.27.
+Reads and native continuation worked; cancellation was observed at provider
+initialization. Project writes failed, real timeout was not triggered, and
+first-time official Windows login is unproven. These are known preview limits.
+See [version-bound evidence](docs/VALIDATION.md) for counts and source identity.
+
+**Windows is not accepted for release.** The credential backend has synthetic
+coverage, but the official fixed `agy` Windows credential contract remains
+unproven. Windows profile requests reject before metadata writes. The shared
+probe returns `UNAVAILABLE` even when explicitly invoked; Windows behavioral
+probe execution is not implemented. Real multi-account switching/shared reads
+remain disabled. The CI matrix is configured, not evidence of a completed run.
+Native lifecycle/ACL/lock checks, official start/resume/quota, and separately
+authorized shared-read evidence remain required; see [validation](docs/VALIDATION.md).
+Earlier macOS reports and the 0.3.0 source review do not certify this prerelease.
+
 ## 0.3.0 — 2026-09-06
 
 First public distribution of Gemini Subagent for Codex.

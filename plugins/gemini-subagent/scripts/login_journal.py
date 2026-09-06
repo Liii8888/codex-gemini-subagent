@@ -200,6 +200,8 @@ def write_login_journal(path: Path, record: dict[str, Any]) -> dict[str, Any]:
     """Atomically create or advance the journal at the fixed filename."""
 
     normalized = validate_login_journal(record)
+    if os.name == "nt":
+        return _windows_write(path, normalized)
     destination, dir_fd = _open_auth_directory(path, create=True)
     temp_name: str | None = None
     try:
@@ -246,6 +248,8 @@ def write_login_journal(path: Path, record: dict[str, Any]) -> dict[str, Any]:
 def load_login_journal(path: Path) -> dict[str, Any] | None:
     """Load and validate the journal, returning ``None`` when it is absent."""
 
+    if os.name == "nt":
+        return _windows_load(path)
     destination, dir_fd = _open_auth_directory(path, create=False)
     try:
         return _load_from_directory(dir_fd, destination.name)
@@ -256,6 +260,11 @@ def load_login_journal(path: Path) -> dict[str, Any] | None:
 def remove_login_journal(path: Path) -> bool:
     """Remove a validated regular journal file and fsync its directory."""
 
+    if os.name == "nt":
+        if _windows_load(path) is None:
+            return False
+        Path(path).unlink()
+        return True
     destination, dir_fd = _open_auth_directory(path, create=False)
     try:
         current = _load_from_directory(dir_fd, destination.name)
@@ -411,3 +420,57 @@ def _validate_rewrite(existing: dict[str, Any], updated: dict[str, Any]) -> None
         raise LoginJournalError(
             f"Invalid login journal transition: {existing['phase']} -> {updated['phase']}."
         )
+
+
+def _windows_load(path: Path) -> dict[str, Any] | None:
+    from platform_fs import file_is_private
+    destination = _validated_destination(path)
+    if not file_is_private(destination.parent):
+        raise LoginJournalError("The auth root must be a private Windows directory without reparse points.")
+    if not destination.exists():
+        return None
+    if not file_is_private(destination):
+        raise LoginJournalError("The login journal must be a private Windows file without reparse points.")
+    before = destination.stat()
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or not 0 < before.st_size <= MAX_JOURNAL_BYTES:
+        raise LoginJournalError("The login journal must be a bounded single regular file.")
+    with destination.open("rb") as handle:
+        opened = os.fstat(handle.fileno())
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise LoginJournalError("The login journal changed while opening.")
+        raw = handle.read(MAX_JOURNAL_BYTES + 1)
+    if len(raw) > MAX_JOURNAL_BYTES:
+        raise LoginJournalError("The login journal exceeds the size limit.")
+    try:
+        return validate_login_journal(json.loads(raw.decode("utf-8"), object_pairs_hook=_object_without_duplicates))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise LoginJournalError("The login journal is not valid UTF-8 JSON.") from exc
+
+
+def _windows_write(path: Path, normalized: dict[str, Any]) -> dict[str, Any]:
+    from platform_fs import private_mkdir, secure_chmod
+    destination = _validated_destination(path)
+    private_mkdir(destination.parent)
+    previous = _windows_load(destination)
+    if previous is None:
+        if normalized["phase"] != "prepared":
+            raise LoginJournalError("A new login journal must start in the prepared phase.")
+    else:
+        _validate_rewrite(previous, normalized)
+    payload = json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    if len(payload) > MAX_JOURNAL_BYTES:
+        raise LoginJournalError("The login journal exceeds the size limit.")
+    fd, name = tempfile.mkstemp(prefix=".login-transaction.", dir=destination.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        secure_chmod(Path(name), 0o600)
+        os.replace(name, destination)
+    finally:
+        try:
+            Path(name).unlink()
+        except FileNotFoundError:
+            pass
+    return normalized

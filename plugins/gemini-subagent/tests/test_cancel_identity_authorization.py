@@ -76,7 +76,7 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
         return {
             "pid": pid,
             "pgid": pid,
-            "uid": os.getuid(),
+            "uid": gemini_subagent.current_user_id(),
             "start_sec": start_sec,
             "start_usec": 7,
             "executable": str(Path(sys.executable).resolve()),
@@ -144,7 +144,7 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
             "credential_revision": int(job.get("credential_revision", 0)),
             "pid": self.PROVIDER_PID,
             "pgid": self.PROVIDER_PID,
-            "uid": os.getuid(),
+            "uid": gemini_subagent.current_user_id(),
             "pid_start_identity": f"{expected}:7",
             "pid_start_sec": expected,
             "pid_start_usec": 7,
@@ -153,6 +153,7 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
             "managed_child_kind": "model",
             "state": "published",
             "created_at": gemini_subagent.now_iso(),
+            "windows_context": job.get("windows_context"),
         }
         gemini_subagent.atomic_write_json(
             gemini_subagent.provider_lease_path(job["job_id"]), lease
@@ -198,10 +199,10 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
                 raise ProcessLookupError(pid)
             return pid
 
-        def fake_signal_managed_group(pgid: int, sig: signal.Signals) -> None:
+        def fake_signal_managed_group(pgid: int, sig: signal.Signals, **_kwargs) -> None:
             self.assertNotEqual(
                 pgid,
-                os.getpgrp(),
+                gemini_subagent.current_group(),
                 "test fixture attempted to address the test runner group",
             )
             signalled.append((pgid, sig))
@@ -226,7 +227,7 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
             "process_command",
             side_effect=lambda pid: self.managed_command(job, lease, pid),
         ), mock.patch.object(
-            gemini_subagent.os, "getpgid", side_effect=fake_getpgid
+            gemini_subagent.os, "getpgid", side_effect=fake_getpgid, create=True
         ), mock.patch.object(
             gemini_subagent,
             "signal_managed_group",

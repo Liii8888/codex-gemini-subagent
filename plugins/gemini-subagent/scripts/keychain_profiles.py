@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opaque Antigravity credential profiles backed only by macOS Keychain.
+"""Opaque Antigravity profiles and platform-selected secure-store admission.
 
 This module deliberately does not understand the credential record.  It only
 checks a small transport envelope, moves the bytes between fixed Keychain
@@ -10,6 +10,10 @@ Like the Darwin backend used by ``zalando/go-keyring``, writes run
 ``/usr/bin/security -i`` and send a single bounded command over stdin.  The
 provider record is base64-wrapped for that transport.  It therefore never
 appears in process argv, while reads and deletes contain tuple metadata only.
+
+Windows supports lock-only admission for unmanaged system accounts. The generic
+Credential Manager backend has no verified Antigravity item/envelope mapping;
+all production credential operations on that adapter fail closed.
 """
 
 from __future__ import annotations
@@ -18,21 +22,25 @@ import contextlib
 import base64
 import binascii
 import errno
-import fcntl
 import hmac
 import os
-import pwd
 import re
 import signal
 import stat
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Protocol, Sequence
 
-from runtime_paths import canonical_auth_runtime_root
+import platform_fs
+from account_schema import KEYCHAIN_PROFILE_MODE, WINDOWS_PROFILE_MODE
+from windows_credentials import (
+    WINDOWS_PROFILE_UNAVAILABLE_REASON,
+    WindowsCredentialManagerAccess,
+)
 
 
 SECURITY_BINARY = "/usr/bin/security"
@@ -49,7 +57,24 @@ SECURITY_ITEM_NOT_FOUND_EXIT = 44  # (-25300) modulo the process exit range
 LOCK_WAIT_POLL_SECONDS = 0.05
 CONTROL_RECOVERY_GRACE_SECONDS = 3.0
 
-DEFAULT_LOCK_PATH = canonical_auth_runtime_root() / ".antigravity-keychain.lock"
+WINDOWS_SHARED_LEASE_UNAVAILABLE_REASON = (
+    "Windows shared provider leases are unsupported: Windows locks cannot be "
+    "inherited through POSIX pass_fds."
+)
+
+
+def default_lock_path() -> Path:
+    # Resolve user identity only when the feature is requested, never on import.
+    from runtime_paths import canonical_auth_runtime_root
+
+    return canonical_auth_runtime_root() / ".antigravity-keychain.lock"
+
+
+def __getattr__(name: str) -> object:
+    # Preserve the old exported constant without eager platform/user lookup.
+    if name == "DEFAULT_LOCK_PATH":
+        return default_lock_path()
+    raise AttributeError(name)
 
 
 class _ProcessReadWriteLock:
@@ -151,7 +176,11 @@ class KeychainProfileError(RuntimeError):
 
 
 class KeychainUnavailableError(KeychainProfileError):
-    """The required macOS Keychain interface is unavailable."""
+    """The selected secure-store interface is unavailable (compatibility name)."""
+
+
+class ProfilePlatformUnsupportedError(KeychainUnavailableError):
+    """A selected profile feature has no supported adapter on this platform."""
 
 
 class CredentialMissingError(KeychainProfileError):
@@ -191,6 +220,16 @@ class ProfileVerification:
     profile_present: bool
     active_present: bool
     active_matches_profile: bool
+
+
+@dataclass(frozen=True)
+class ProfileStoreCapability:
+    """Static implementation support, not a live credential/readiness probe."""
+
+    profile_mode: str
+    supported: bool
+    reason: str | None
+    shared_run_lease_supported: bool
 
 
 @dataclass(frozen=True)
@@ -239,6 +278,10 @@ class SubprocessCommandRunner:
 
     @contextlib.contextmanager
     def inherit_fd(self, fd: int) -> Iterable[None]:
+        if platform_fs.IS_WINDOWS:
+            raise ProfilePlatformUnsupportedError(
+                "The macOS security transport requires POSIX descriptor inheritance."
+            )
         previous = getattr(self._local, "pass_fds", ())
         self._local.pass_fds = tuple(previous) + (fd,)
         try:
@@ -329,6 +372,8 @@ class SubprocessCommandRunner:
     def run(
         self, argv: Sequence[str], *, stdin_data: bytearray | None = None
     ) -> CommandResult:
+        if platform_fs.IS_WINDOWS:
+            raise KeychainUnavailableError("The macOS security command is unavailable on Windows.")
         args = tuple(argv)
         if not args or args[0] != SECURITY_BINARY:
             raise KeychainProfileError("Refusing to run a non-security command.")
@@ -523,6 +568,30 @@ class SafeMacOSKeychainAccess:
         )
 
 
+class WindowsAntigravityAccess:
+    """Disabled provider mapping above the generic Windows secure store.
+
+    No Keychain tuple is translated into a guessed Windows target. Merely
+    constructing this adapter loads no DLL and reads no credentials. A verified
+    item identifier and record contract are required before implementing any
+    of these methods, including profile deletion or inspection.
+    """
+
+    unavailable_reason = WINDOWS_PROFILE_UNAVAILABLE_REASON
+
+    def __init__(self) -> None:
+        self._backend = WindowsCredentialManagerAccess()
+
+    def read(self, item: KeychainTuple) -> bytearray | None:
+        raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+
+    def write(self, item: KeychainTuple, credential: bytearray) -> None:
+        raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+
+    def delete(self, item: KeychainTuple) -> bool:
+        raise ProfilePlatformUnsupportedError(self.unavailable_reason)
+
+
 def _trim_ascii_whitespace(value: bytearray) -> None:
     whitespace = b" \t\r\n\v\f"
     start = 0
@@ -582,13 +651,15 @@ def _profile_lock(
     shared: bool,
     wait_callback: Callable[[], None] | None = None,
 ) -> Iterable[int]:
+    if shared and platform_fs.IS_WINDOWS:
+        raise ProfilePlatformUnsupportedError(WINDOWS_SHARED_LEASE_UNAVAILABLE_REASON)
     if not lock_path.is_absolute():
         raise KeychainProfileError("The Keychain switch lock path must be absolute.")
     if getattr(_PROCESS_LEASE_LOCAL, "mode", None) is not None:
         raise KeychainProfileError(
             "Keychain profile locks cannot be nested across store instances."
         )
-    lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    platform_fs.private_mkdir(lock_path.parent)
     flags = os.O_CREAT | os.O_RDWR
     flags |= getattr(os, "O_CLOEXEC", 0)
     flags |= getattr(os, "O_NOFOLLOW", 0)
@@ -606,16 +677,16 @@ def _profile_lock(
             ) from exc
         try:
             details = os.fstat(fd)
-            if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid():
+            if not stat.S_ISREG(details.st_mode) or not platform_fs.current_user_owns(fd):
                 raise KeychainProfileError("The Keychain switch lock is not a safe user file.")
             if details.st_nlink != 1:
                 raise KeychainProfileError("The Keychain switch lock has unexpected links.")
-            if details.st_mode & 0o077:
-                os.fchmod(fd, 0o600)
+            if not platform_fs.file_is_private(fd):
+                platform_fs.secure_chmod(fd, 0o600)
             while True:
                 try:
-                    mode = fcntl.LOCK_SH if shared else fcntl.LOCK_EX
-                    fcntl.flock(fd, mode | fcntl.LOCK_NB)
+                    mode = platform_fs.LOCK_SH if shared else platform_fs.LOCK_EX
+                    platform_fs.flock(fd, mode | platform_fs.LOCK_NB)
                     break
                 except OSError as exc:
                     if exc.errno not in (errno.EACCES, errno.EAGAIN):
@@ -623,7 +694,7 @@ def _profile_lock(
                     if wait_callback is not None:
                         wait_callback()
                     time.sleep(LOCK_WAIT_POLL_SECONDS)
-            os.set_inheritable(fd, True)
+            os.set_inheritable(fd, not platform_fs.IS_WINDOWS)
             _PROCESS_LEASE_LOCAL.mode = "shared" if shared else "exclusive"
             try:
                 yield fd
@@ -633,12 +704,18 @@ def _profile_lock(
                 finally:
                     _PROCESS_LEASE_LOCAL.mode = None
         finally:
-            # Do not call LOCK_UN here.  A managed provider may still hold an
+            # On POSIX do not call LOCK_UN here. A managed provider may hold an
             # inherited duplicate of this open file description after its
             # worker is killed.  Closing our fd preserves the flock until the
             # final inheriting process exits; an explicit unlock would release
             # it globally and permit a credential switch underneath that child.
-            os.close(fd)
+            # Windows admission remains worker-owned; the native process
+            # guardian must retain admission until the provider has stopped.
+            try:
+                if platform_fs.IS_WINDOWS:
+                    platform_fs.flock(fd, platform_fs.LOCK_UN)
+            finally:
+                os.close(fd)
     finally:
         if shared:
             _PROCESS_SWITCH_LOCK.release_shared()
@@ -726,7 +803,11 @@ class KeychainProfileLease:
 
     @property
     def lock_fd(self) -> int:
-        """Inheritable fd for ``subprocess.Popen(pass_fds=(lease.lock_fd,))``."""
+        """Lock fd; only POSIX providers may inherit it through ``pass_fds``.
+
+        Windows returns a non-inheritable admission fd. Its provider guardian
+        must retain worker admission until the provider has stopped.
+        """
 
         self._ensure_active()
         return self._lock_fd
@@ -849,17 +930,28 @@ class KeychainProfileStore:
         self,
         access: KeychainAccess,
         *,
-        lock_path: Path = DEFAULT_LOCK_PATH,
+        lock_path: Path | None = None,
     ):
         self._access = access
-        self.lock_path = Path(lock_path).expanduser()
+        selected_lock = lock_path if lock_path is not None else default_lock_path()
+        self.lock_path = Path(selected_lock).expanduser()
         self._lease_local = threading.local()
+
+    @property
+    def capability(self) -> ProfileStoreCapability:
+        if isinstance(self._access, WindowsAntigravityAccess):
+            return ProfileStoreCapability(
+                WINDOWS_PROFILE_MODE, False, WINDOWS_PROFILE_UNAVAILABLE_REASON, False
+            )
+        return ProfileStoreCapability(
+            KEYCHAIN_PROFILE_MODE, True, None, not platform_fs.IS_WINDOWS
+        )
 
     @classmethod
     def macos(
         cls,
         *,
-        lock_path: Path = DEFAULT_LOCK_PATH,
+        lock_path: Path | None = None,
         command_timeout_seconds: float = 30.0,
         command_wait_callback: Callable[[], None] | None = None,
         on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
@@ -874,6 +966,57 @@ class KeychainProfileStore:
             hard_deadline=command_hard_deadline,
         )
         return cls(SafeMacOSKeychainAccess(runner=runner), lock_path=lock_path)
+
+    @classmethod
+    def windows(
+        cls,
+        *,
+        lock_path: Path | None = None,
+        command_timeout_seconds: float = 30.0,
+        command_wait_callback: Callable[[], None] | None = None,
+        on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
+        on_process_stop: Callable[[subprocess.Popen[bytes]], None] | None = None,
+        command_hard_deadline: float | None = None,
+    ) -> "KeychainProfileStore":
+        """Create lock-only admission with a disabled production adapter.
+
+        Keyword arguments match macos(). There is no security subprocess on
+        Windows, so command callbacks/deadlines have nothing to control here.
+        Use lease(wait_callback=...) to control admission waits. The main native
+        process guardian owns provider lifetime and the admission boundary.
+        """
+
+        return cls(WindowsAntigravityAccess(), lock_path=lock_path)
+
+    @classmethod
+    def native(
+        cls,
+        *,
+        lock_path: Path | None = None,
+        command_timeout_seconds: float = 30.0,
+        command_wait_callback: Callable[[], None] | None = None,
+        on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
+        on_process_stop: Callable[[subprocess.Popen[bytes]], None] | None = None,
+        command_hard_deadline: float | None = None,
+    ) -> "KeychainProfileStore":
+        """Select an OS adapter without probing the native credential store."""
+
+        if platform_fs.IS_WINDOWS:
+            factory = cls.windows
+        elif sys.platform == "darwin":
+            factory = cls.macos
+        else:
+            raise ProfilePlatformUnsupportedError(
+                "Managed Antigravity profiles have no secure-store adapter on this platform."
+            )
+        return factory(
+            lock_path=lock_path,
+            command_timeout_seconds=command_timeout_seconds,
+            command_wait_callback=command_wait_callback,
+            on_process_start=on_process_start,
+            on_process_stop=on_process_stop,
+            command_hard_deadline=command_hard_deadline,
+        )
 
     def _current_lease(
         self,
@@ -922,9 +1065,11 @@ class KeychainProfileStore:
         """Hold the global auth lock across switching and provider lifetime.
 
         Calls to ``store.capture/restore/delete/verify`` made inside this context
-        reuse the lease and never try to flock recursively.  Pass ``lock_fd`` to
-        the official provider process so a hard-killed worker cannot release the
-        lock while that provider is still alive.  While contended, an optional
+        reuse the lease and never try to flock recursively. On POSIX pass
+        ``lock_fd`` to the provider so a hard-killed worker cannot release the
+        lock while that provider is alive. Windows locks are not inherited;
+        the native guardian must retain admission until the provider stops.
+        While contended, an optional
         callback is invoked between short nonblocking polls so callers can renew
         heartbeats or raise their own cancellation exception.
         """
@@ -971,6 +1116,8 @@ class KeychainProfileStore:
         verification, switching, login, capture, or deletion methods.
         """
 
+        if not self.capability.shared_run_lease_supported:
+            raise ProfilePlatformUnsupportedError(WINDOWS_SHARED_LEASE_UNAVAILABLE_REASON)
         current = self._current_lease()
         if current is not None:
             if isinstance(current, KeychainProfileLease):

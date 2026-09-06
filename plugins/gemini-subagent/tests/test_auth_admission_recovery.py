@@ -3,7 +3,7 @@ from __future__ import annotations
 import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child processes
 
 import contextlib
-import fcntl
+import platform_fs as fcntl
 import io
 import json
 import os
@@ -65,6 +65,7 @@ def kill_exact_group(pgid: int | None) -> None:
         os.killpg(pgid, signal.SIGKILL)
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class AuthAdmissionRecoveryTests(unittest.TestCase):
     """Auth-domain admission must account for every canonical provider lease."""
 
@@ -346,6 +347,7 @@ class AuthAdmissionRecoveryTests(unittest.TestCase):
         )
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class JobBoundProbeGuardianTests(unittest.TestCase):
     """Job-bound discovery and usage probes need the model guardian contract."""
 
@@ -441,7 +443,7 @@ time.sleep(60)
             },
         )
         harness = r"""
-import fcntl
+import platform_fs as fcntl
 import os
 import sys
 import threading

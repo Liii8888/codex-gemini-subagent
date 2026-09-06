@@ -5,10 +5,17 @@ description: Inspect Gemini Subagent jobs, capability-gated concurrency, user-de
 
 # Gemini Subagent Status
 
-Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
-`<plugin-root>/skills/<skill-name>/SKILL.md`. Resolve the installed file path;
-`Path(skill_file).resolve().parents[2]` is the plugin root. Execute it outside the workspace sandbox with the
-exact executable as the narrow approved prefix.
+Use `<plugin-root>/scripts/gemini_subagent.py`, resolved from the actual installed
+skill or Codex installation metadata. From this file,
+`Path(skill_file).resolve().parents[2]` is the plugin root. Use `python3` on
+macOS or the verified native Python 3.10+ x64 interpreter on Windows; never
+assume a cache path, shebang, or `.py` association.
+
+For Windows invocation, permissions, session ownership, and current limitations,
+read the bundled [platform reference](../../references/platforms.md) before
+running the first command. Windows is experimental: project writes, real deadline
+expiry, and first-time official login have not passed live acceptance. Keep
+normal narrowly scoped host approval; multi-account/shared mode remains disabled.
 
 ## Commands
 
@@ -16,7 +23,7 @@ exact executable as the narrow approved prefix.
   snapshot. Report only changed state when monitoring.
 - `concurrency status --json` reports the configured mode, effective read/write
   limits, capability eligibility and failure reason, bound account/revision,
-  tested worker count, binary hash, and macOS build. Treat `enabled=true` as the
+  tested worker count, binary hash, and native OS build/architecture. Treat `enabled=true` as the
   effective gate; a present report alone is not enough.
 - `wait <job-id> --timeout <seconds>` waits for completion and returns the
   durable result.
@@ -40,8 +47,24 @@ exact executable as the narrow approved prefix.
   checks enabled profiles serially. Report unavailable data rather than
   estimating or querying an undocumented endpoint. Quota refresh alone is not a
   substitute for strict verification.
-- `doctor --deep --json` verifies binaries, runtime writability, and a live
-  quota probe.
+- `doctor --json` initializes local runtime state and reports `platform`. Windows
+  `capabilities` keys are `task_lifecycle`, `credential_storage`,
+  `credential_profiles`, `shared_reads`, and `desktop_integration`. Lifecycle is
+  available with `pending-native-acceptance`, storage is `synthetic-tests-only`,
+  profiles/shared reads are unavailable, and desktop integration is pending.
+  The 23H2 lock/ACL evidence is not release acceptance. Do not use real doctor for read-only
+  package checks. `doctor --deep --json` additionally performs a live quota probe
+  and requires authorization for provider access.
+
+Windows 11 24H2+ x64 with PowerShell is the prerelease adaptation target;
+**Windows acceptance is pending**. The runtime belongs in the real user's
+LocalAppData, and native sessions/credentials are not migrated from another OS.
+Synthetic Windows Credential Manager tests do not prove the fixed official
+`agy` record contract. Report real Windows multi-account/shared mode as blocked;
+do not enumerate credentials, trigger a probe, or reuse a macOS enabling report.
+Windows profile add rejects before metadata writes. The shared probe returns
+`UNAVAILABLE` even on an explicit run; Windows behavioral execution is not
+implemented pending the fixed provider contract.
 
 Antigravity work defaults to one serialized worker. A capability-gated shared
 epoch may contain only same-profile, same-account UUID/revision Antigravity
@@ -50,17 +73,17 @@ Writes, unsafe jobs,
 Gemini CLI, different accounts, login/import/activate/verify/quota remain
 exclusive, and a shared epoch has no automatic failover. Report a queued or
 rejected exclusive operation as such rather than implying it can switch the
-fixed Keychain slot mid-epoch.
+fixed OS credential slot mid-epoch.
 
 When serialized routing is free and the current account is exhausted or locally
 cooled down, report which strictly ready account automatic selection will use
 next. Do not treat `credential_state=ready` without a valid revision-bound proof
 as schedulable, and do not claim that a running native session can move to that
-account. Binary/hash, macOS build, or revision drift invalidates shared
+account. Binary/hash, native OS build/architecture, or revision drift invalidates shared
 eligibility. `read` concurrency is plan/sandbox intent, not a hard tool deny.
 Warn when unmanaged `agy`, Antigravity IDE, or another switcher could contend
-for the same fixed Keychain item.
+for the same fixed credential slot.
 
-Quota and deep doctor need provider network/Keychain access. Execute them with
-the exact Gemini Subagent executable outside the workspace sandbox. Do not read,
-print, or persist credential records and do not query private backend APIs.
+Quota and deep doctor need provider network/OS-credential access. Keep the exact
+interpreter and installed script invocation within the existing authorization.
+Do not read, print, or persist credential records or query private backend APIs.

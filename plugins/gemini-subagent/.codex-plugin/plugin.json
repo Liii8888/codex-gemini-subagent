@@ -1,7 +1,7 @@
 {
   "name": "gemini-subagent",
-  "version": "0.3.0",
-  "description": "Managed Gemini CLI and Antigravity workers for Codex.",
+  "version": "0.4.0-alpha.1",
+  "description": "Managed Antigravity and optional Gemini CLI workers. Native Windows adaptation prerelease; Windows acceptance pending.",
   "author": {
     "name": "Liii8888",
     "url": "https://github.com/Liii8888"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Gemini Subagent",
     "shortDescription": "Run controlled Google CLI workers from Codex",
-    "longDescription": "Delegate work to official Gemini or Antigravity CLIs while Codex controls accounts, quota checks, concurrency, status, cancellation, native session continuation, durable results, and verification.",
+    "longDescription": "Delegate work to official Antigravity or optional Gemini CLI workers with managed lifecycle and durable results. Version 0.4.0-alpha.1 adds experimental native Windows support alongside macOS. Windows 11 23H2 offline and Codex-controlled read/resume evidence exists; project writes failed, real timeout was not triggered, and first-time official login is unproven. Windows 24H2+ release acceptance is pending. Windows multi-account switching and shared reads remain disabled.",
     "developerName": "Liii8888",
     "category": "Coding",
     "capabilities": [

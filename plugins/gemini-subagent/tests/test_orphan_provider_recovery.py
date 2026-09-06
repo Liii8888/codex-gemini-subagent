@@ -43,6 +43,7 @@ def kill_exact_group(pgid: int | None) -> None:
         os.killpg(pgid, signal.SIGKILL)
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class OrphanProviderRecoveryTests(unittest.TestCase):
     """Regression coverage for a worker hard-crash with a surviving provider."""
 

@@ -129,6 +129,7 @@ class AccountSessionBoundaryTests(unittest.TestCase):
             ]
         )
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_account_names_must_be_unique_after_casefold(self) -> None:
         self.assertEqual(
             self.add_account("Pro", "--provider", "agy", "--keychain-profile"),
@@ -175,6 +176,7 @@ class AccountSessionBoundaryTests(unittest.TestCase):
             str(profile_root),
         )
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_isolated_profile_roots_reject_resolved_alias(self) -> None:
         shared = Path(self.temp.name) / "shared-profile"
         shared.mkdir()
@@ -190,7 +192,9 @@ class AccountSessionBoundaryTests(unittest.TestCase):
         case_alias = Path(self.temp.name) / "shared-profile"
         if not case_alias.exists():
             self.skipTest("samefile case-alias check requires a case-insensitive filesystem")
-        self.assertNotEqual(str(shared.resolve()), str(case_alias.resolve()))
+        # Windows resolve() canonicalizes case; the caller supplied two
+        # different spellings even when their resolved strings are identical.
+        self.assertNotEqual(str(shared), str(case_alias))
         self.assertTrue(shared.samefile(case_alias))
         self.assertEqual(self.add_isolated("gem-a", shared), 0)
         with self.assertRaises(gemini_subagent.BridgeError):
@@ -206,9 +210,9 @@ class AccountSessionBoundaryTests(unittest.TestCase):
         pwd_home = Path(self.temp.name) / "pwd-home"
         pwd_home.mkdir()
         with mock.patch.object(
-            gemini_subagent.pwd,
-            "getpwuid",
-            return_value=mock.Mock(pw_dir=str(pwd_home)),
+            gemini_subagent,
+            "real_user_home",
+            return_value=pwd_home,
         ):
             with self.assertRaisesRegex(gemini_subagent.BridgeError, "overlap"):
                 self.add_isolated("gem-system-alias", pwd_home / ".gemini")
@@ -220,9 +224,9 @@ class AccountSessionBoundaryTests(unittest.TestCase):
         pwd_home.mkdir()
         with (
             mock.patch.object(
-                gemini_subagent.pwd,
-                "getpwuid",
-                return_value=mock.Mock(pw_dir=str(pwd_home)),
+                gemini_subagent,
+                "real_user_home",
+                return_value=pwd_home,
             ),
             mock.patch.dict(
                 os.environ,
@@ -244,6 +248,7 @@ class AccountSessionBoundaryTests(unittest.TestCase):
         self.assertEqual(effective_base, pwd_home / ".gemini")
         self.assertNotEqual(effective_base, inherited_cli_home.resolve())
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_known_conversation_rejects_different_account_uuid(self) -> None:
         self.make_two_ready_keychain_accounts()
         previous = self.completed_conversation()
@@ -254,6 +259,7 @@ class AccountSessionBoundaryTests(unittest.TestCase):
                 )
             )
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_known_conversation_rejects_different_revision(self) -> None:
         self.make_two_ready_keychain_accounts()
         previous = self.completed_conversation()
@@ -268,6 +274,7 @@ class AccountSessionBoundaryTests(unittest.TestCase):
                 )
             )
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_known_conversation_rejects_different_cwd(self) -> None:
         self.make_two_ready_keychain_accounts()
         previous = self.completed_conversation()
@@ -280,6 +287,7 @@ class AccountSessionBoundaryTests(unittest.TestCase):
                 )
             )
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_known_conversation_accepts_exact_binding(self) -> None:
         account, _ = self.make_two_ready_keychain_accounts()
         previous = self.completed_conversation()

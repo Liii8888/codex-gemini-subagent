@@ -59,6 +59,7 @@ class FakeKeychainAccess:
         return self.items.pop(item, None) is not None
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class LoginRecoveryIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(

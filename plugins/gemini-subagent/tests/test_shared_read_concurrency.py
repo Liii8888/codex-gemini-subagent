@@ -30,6 +30,7 @@ sys.modules[SPEC.name] = gemini_subagent
 SPEC.loader.exec_module(gemini_subagent)
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class SharedReadConcurrencyTests(unittest.TestCase):
     """Executable contract for ``same-account-read-shared-v1``.
 

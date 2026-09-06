@@ -1,7 +1,7 @@
 {
   "name": "gemini-subagent-public",
   "interface": {
-    "displayName": "Gemini Subagent"
+    "displayName": "Gemini Subagent (0.4.0-alpha.1 prerelease)"
   },
   "plugins": [
     {

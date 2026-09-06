@@ -3,7 +3,7 @@ from __future__ import annotations
 import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child processes
 
 import contextlib
-import fcntl
+import platform_fs as fcntl
 import hashlib
 import importlib.util
 import io
@@ -292,6 +292,7 @@ def usage_data() -> dict[str, object]:
     }
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class SharedReadWorkerExecutionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(

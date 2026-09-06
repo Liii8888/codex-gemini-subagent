@@ -27,6 +27,7 @@ SPEC.loader.exec_module(gemini_subagent)
 
 
 class RuntimeMigrationTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_stale_active_job_with_reused_live_pid_does_not_block_migration(self) -> None:
         with tempfile.TemporaryDirectory(
             prefix="gemini-subagent-runtime-pid-reuse-test-"

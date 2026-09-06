@@ -26,6 +26,7 @@ if str(SCRIPTS) not in sys.path:
 import gemini_subagent  # noqa: E402
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class QuotaProbeCancellationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(
@@ -45,9 +46,10 @@ from pathlib import Path
 
 if \"-p\" in sys.argv and sys.argv[sys.argv.index(\"-p\") + 1] == \"/usage\":
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
-    Path(os.environ[\"GEMINI_SUBAGENT_QUOTA_READY\"]).write_text(
-        str(os.getpid()), encoding=\"ascii\"
-    )
+    ready = Path(os.environ[\"GEMINI_SUBAGENT_QUOTA_READY\"])
+    staging = ready.with_name(ready.name + \".tmp\")
+    staging.write_text(str(os.getpid()), encoding=\"ascii\")
+    staging.replace(ready)
     time.sleep(30)
 raise SystemExit(0)
 """,

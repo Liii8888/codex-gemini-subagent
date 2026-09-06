@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import sys
 import unittest
@@ -494,6 +495,116 @@ class AccountSchemaTests(unittest.TestCase):
         self.assertEqual(migrated, state)
         self.assertIsNot(migrated, state)
         self.assertIsNot(migrated["accounts"]["pro-1"], account)
+
+    def test_mixed_platform_v2_preserves_old_accounts_and_routing_exactly(self):
+        mac = {
+            "id": AGY_ID,
+            "name": "mac",
+            "provider": "agy",
+            "profile_mode": account_schema.KEYCHAIN_PROFILE_MODE,
+            "credential_state": "ready",
+            "credential_revision": 7,
+            "readiness_verified_revision": 7,
+            "readiness_verified_at": "2026-08-19T08:00:00Z",
+        }
+        windows = dict(
+            mac, id=SECOND_AGY_ID, name="windows",
+            profile_mode=account_schema.WINDOWS_PROFILE_MODE,
+            binary=r"C:\Users\Synthetic\AppData\Local\agy\bin\agy.exe",
+        )
+        state = v2_state(
+            accounts={"mac": mac, "windows": windows},
+            default_account="mac", agy_order=[SECOND_AGY_ID, AGY_ID],
+        )
+        before = copy.deepcopy(state)
+        migrated = account_schema.migrate_accounts_state(
+            state, id_factory=lambda: self.fail("v2 IDs must not be regenerated")
+        )
+        self.assertEqual(account_schema.SCHEMA_VERSION, 2)
+        self.assertEqual(account_schema.WINDOWS_PROFILE_MODE, "windows-credential-manager-vault")
+        self.assertEqual(migrated, before)
+        self.assertEqual(state, before)
+        self.assertIsNot(migrated["accounts"]["mac"], mac)
+        self.assertIsNot(migrated["accounts"]["windows"], windows)
+
+    def test_windows_profile_mode_is_agy_only_and_requires_exact_routing(self):
+        account = {
+            "id": AGY_ID, "name": "windows", "provider": "agy",
+            "profile_mode": account_schema.WINDOWS_PROFILE_MODE,
+            "credential_state": "uncaptured", "credential_revision": 0,
+        }
+        state = v2_state(
+            accounts={"windows": account}, default_account="windows", agy_order=[AGY_ID]
+        )
+        account_schema.validate_accounts_state(state)
+        for order in ([], [SECOND_AGY_ID], [AGY_ID, AGY_ID]):
+            broken = copy.deepcopy(state)
+            broken["routing"]["agy_order"] = order
+            with self.assertRaises(account_schema.AccountSchemaError):
+                account_schema.validate_accounts_state(broken)
+        account["provider"] = "gemini"
+        state["routing"]["agy_order"] = []
+        with self.assertRaisesRegex(account_schema.AccountSchemaError, "unsupported profile_mode"):
+            account_schema.validate_accounts_state(state)
+
+    def test_windows_readiness_remains_revision_bound_metadata(self):
+        account = {
+            "id": AGY_ID, "name": "windows", "provider": "agy",
+            "profile_mode": account_schema.WINDOWS_PROFILE_MODE,
+            "credential_state": "ready", "credential_revision": 4,
+            "readiness_verified_revision": 4,
+            "readiness_verified_at": "2026-09-06T08:00:00Z",
+        }
+        state = v2_state(
+            accounts={"windows": account}, default_account="windows", agy_order=[AGY_ID]
+        )
+        account_schema.validate_accounts_state(state)
+        for field, value in (
+            ("credential_revision", True), ("credential_revision", -1),
+            ("readiness_verified_revision", 3), ("readiness_verified_revision", True),
+            ("readiness_verified_at", "2026-09-06T08:00:00+08:00"),
+        ):
+            with self.subTest(field=field, value=value):
+                broken = copy.deepcopy(state)
+                broken["accounts"]["windows"][field] = value
+                with self.assertRaises(account_schema.AccountSchemaError):
+                    account_schema.validate_accounts_state(broken)
+        # Schema validity is deliberately independent of a host's runtime
+        # adapter support; the profile factory enforces that separate boundary.
+        public = account_schema.public_account(account, default=True, cooling=False)
+        self.assertEqual(public["profile_mode"], account_schema.WINDOWS_PROFILE_MODE)
+        self.assertEqual(public["readiness_verified_revision"], 4)
+
+    def test_windows_metadata_never_adds_a_credential_envelope(self):
+        account = {
+            "id": AGY_ID, "name": "windows", "provider": "agy",
+            "profile_mode": account_schema.WINDOWS_PROFILE_MODE,
+            "credential_state": "uncaptured", "credential_revision": 0,
+            "nested": {"credential_blob": "synthetic-only", "safe": "metadata"},
+        }
+        state = v2_state(
+            accounts={"windows": account}, default_account="windows", agy_order=[AGY_ID]
+        )
+        with self.assertRaisesRegex(account_schema.AccountSchemaError, "Credential-bearing"):
+            account_schema.validate_accounts_state(state)
+        migrated = account_schema.migrate_accounts_state(state)
+        self.assertEqual(migrated["accounts"]["windows"]["nested"], {"safe": "metadata"})
+        public = account_schema.public_account(account, default=True, cooling=False)
+        self.assertNotIn("nested", public)
+
+    def test_v1_windows_metadata_migration_defaults_to_uncaptured(self):
+        source = {
+            "version": 1, "default_account": "windows",
+            "accounts": {"windows": {
+                "name": "windows", "provider": "agy",
+                "profile_mode": account_schema.WINDOWS_PROFILE_MODE,
+            }},
+        }
+        migrated = account_schema.migrate_accounts_state(source, id_factory=id_factory(AGY_ID))
+        self.assertEqual(migrated["accounts"]["windows"]["credential_state"], "uncaptured")
+        self.assertEqual(migrated["accounts"]["windows"]["credential_revision"], 0)
+        self.assertEqual(migrated["routing"]["agy_order"], [AGY_ID])
+        self.assertEqual(source["version"], 1)
 
 
 if __name__ == "__main__":

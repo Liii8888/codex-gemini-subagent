@@ -10,6 +10,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -24,6 +25,7 @@ import agy_concurrency_probe as probe  # noqa: E402
 
 
 class CanonicalProbeLockTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_real_entrypoint_rejects_alternate_lock_before_side_effects(self):
         with tempfile.TemporaryDirectory() as folder:
             args = argparse.Namespace(lock_path=str(Path(folder) / "alternate.lock"))
@@ -51,7 +53,7 @@ def passing_evidence(*, refresh_observed: bool = True, worker_count: int = 2) ->
                 + [{"expected_available": True, "expectation_met": True}]
             ),
             "processes": (
-                [{"expected_crash": True, "exit_code": -signal.SIGKILL}]
+                [{"expected_crash": True, "exit_code": -getattr(signal, "SIGKILL", 9)}]
                 + [
                     {"expected_crash": False, "exit_code": 0}
                     for _ in range(worker_count - 1)
@@ -85,6 +87,7 @@ def passing_evidence(*, refresh_observed: bool = True, worker_count: int = 2) ->
 
 
 class ProbePlanTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_default_main_is_non_executing(self) -> None:
         output = io.StringIO()
         with (
@@ -100,6 +103,7 @@ class ProbePlanTests(unittest.TestCase):
         self.assertIn('"parallel_enablement_allowed": false', rendered)
         self.assertIn('"default_worker_count": 2', rendered)
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_run_without_long_guard_does_not_execute(self) -> None:
         argv = [
             "run",
@@ -259,6 +263,7 @@ class CredentialObservationTests(unittest.TestCase):
         self.assertFalse(rendered["before"]["credential_digest_calculated"])
 
 
+@unittest.skipIf(os.name == "nt", "Darwin signed-binary and Keychain binding contract")
 class CommandAndBindingTests(unittest.TestCase):
     def test_auth_slot_binding_requires_clean_exact_revision(self) -> None:
         account_id = "00000000-0000-4000-8000-000000000001"

@@ -3,7 +3,7 @@ from __future__ import annotations
 import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child processes
 
 import base64
-import fcntl
+import platform_fs as fcntl
 import importlib.util
 import os
 import subprocess
@@ -133,6 +133,7 @@ class FakeRunner:
         return self.results.pop(0) if self.results else keychain_profiles.CommandResult(0)
 
 
+@unittest.skipIf(os.name == "nt", "macOS credential/PGID contract; Windows has separate native coverage")
 class KeychainProfileTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="keychain-profile-test-")

@@ -59,8 +59,9 @@ class LoginJournalTests(unittest.TestCase):
         prepared = self.record()
         self.assertEqual(write_login_journal(self.path, prepared), prepared)
         self.assertEqual(load_login_journal(self.path), prepared)
-        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
-        self.assertEqual(stat.S_IMODE(self.auth_root.stat().st_mode), 0o700)
+        from platform_fs import file_is_private
+        self.assertTrue(file_is_private(self.path))
+        self.assertTrue(file_is_private(self.auth_root))
 
         captured = with_phase(prepared, "target-captured")
         write_login_journal(self.path, captured)
@@ -119,6 +120,7 @@ class LoginJournalTests(unittest.TestCase):
         with self.assertRaises(LoginJournalError):
             write_login_journal(self.path, prepared)
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_path_and_file_safety(self) -> None:
         with self.assertRaises(LoginJournalError):
             journal_path(Path("relative"))
@@ -139,6 +141,7 @@ class LoginJournalTests(unittest.TestCase):
         with self.assertRaises(LoginJournalError):
             load_login_journal(self.path)
 
+    @unittest.skipIf(os.name == "nt", "POSIX filesystem or macOS Keychain capability contract")
     def test_rejects_insecure_corrupt_and_duplicate_json(self) -> None:
         self.auth_root.mkdir(mode=0o700)
         valid = self.record()

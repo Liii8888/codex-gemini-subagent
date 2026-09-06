@@ -5,6 +5,7 @@ import _test_bootstrap  # noqa: F401 -- mock runtime injection, including child 
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,7 +21,7 @@ class PromptPrivacyTests(unittest.TestCase):
             root = Path(folder)
             prompt = 'SYNTHETIC_PRIVATE_TASK_71b6\nUnicode: 中文; literal $(echo hello) and "quotes".\n'
             source = root / "task.md"
-            source.write_text(prompt)
+            source.write_text(prompt, encoding="utf-8")
             capture = root / "captured-input.json"
             env = dict(
                 os.environ,
@@ -32,11 +33,11 @@ class PromptPrivacyTests(unittest.TestCase):
                 MOCK_INPUT_CAPTURE=str(capture),
             )
             result = subprocess.run(
-                [str(RUNNER), "start", "--provider", provider, "--cwd", str(root),
+                [sys.executable, str(RUNNER), "start", "--provider", provider, "--cwd", str(root),
                  "--mode", "read", "--prompt-file", str(source), "--wait", "--json"],
                 env=env, capture_output=True, text=True, timeout=20,
             )
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             completed = json.loads(result.stdout)
             self.assertEqual(completed["state"], "completed")
             received = json.loads(capture.read_text())
