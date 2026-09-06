@@ -2819,7 +2819,6 @@ def build_provider_command(job: dict[str, Any], account: dict[str, Any]) -> tupl
     binary = normalize_binary(account["binary"])
     if not binary_exists(binary):
         raise BridgeError(f"CLI binary is missing or not executable: {binary}")
-    prompt = Path(job["prompt_path"]).read_text(encoding="utf-8")
     if job["provider"] == "agy":
         command = [binary]
         if job.get("conversation_id"):
@@ -2841,7 +2840,7 @@ def build_provider_command(job: dict[str, Any], account: dict[str, Any]) -> tupl
         ]
         if job.get("unsafe_bypass"):
             command.append("--dangerously-skip-permissions")
-        command += ["-p", prompt]
+        command += ["--input-format", "stream-json"]
     else:
         command = [binary]
         if job.get("session_id") and job.get("parent_job_id"):
@@ -2862,9 +2861,24 @@ def build_provider_command(job: dict[str, Any], account: dict[str, Any]) -> tupl
             "--output-format",
             "stream-json",
         ]
-        command += ["-p", prompt]
-    redacted = command[:-1] + ["<prompt>"] if command and command[-2:-1] == ["-p"] else list(command)
-    return command, redacted
+    # Both CLIs support non-interactive stdin. Keep task text out of the CLI
+    # and long-lived guardian argv, which other local processes may inspect.
+    return command, list(command)
+
+
+@contextlib.contextmanager
+def provider_prompt_input(job: dict[str, Any]) -> Iterable[Any]:
+    prompt = Path(job["prompt_path"]).read_text(encoding="utf-8")
+    if job["provider"] == "agy":
+        prompt = json.dumps(
+            {"event": "user", "message": {"content": prompt}}, ensure_ascii=False
+        ) + "\n"
+    # An unlinked, user-private file avoids pipe backpressure while the guardian
+    # waits at its launch gate. The official CLI inherits it as non-TTY stdin.
+    with tempfile.TemporaryFile(mode="w+b") as handle:
+        handle.write(prompt.encode("utf-8"))
+        handle.seek(0)
+        yield handle
 
 
 class StreamSummary:
@@ -3830,7 +3844,7 @@ def run_provider_attempt(
     last_publish = 0.0
     with stderr_path.open("w", encoding="utf-8") as stderr_handle, stream_path.open(
         "wb"
-    ) as stream_handle:
+    ) as stream_handle, provider_prompt_input(job) as prompt_handle:
         proc: subprocess.Popen[Any] | None = None
         selector: selectors.BaseSelector | None = None
         pending = bytearray()
@@ -3906,7 +3920,7 @@ def run_provider_attempt(
                 supervisor_command,
                 cwd=job["cwd"],
                 env=account_environment(account),
-                stdin=subprocess.DEVNULL,
+                stdin=prompt_handle,
                 stdout=subprocess.PIPE,
                 stderr=stderr_handle,
                 text=False,

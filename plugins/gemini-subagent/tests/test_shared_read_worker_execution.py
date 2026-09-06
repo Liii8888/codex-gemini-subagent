@@ -163,7 +163,8 @@ if sys.argv[1:] == ["models"]:
 try:
     prompt = sys.argv[sys.argv.index("-p") + 1]
 except (ValueError, IndexError):
-    prompt = ""
+    data = sys.stdin.read()
+    prompt = json.loads(data)["message"]["content"] if "--input-format" in sys.argv else data
 
 if prompt.strip() == "/usage":
     events_path = os.environ.get("SHARED_TEST_USAGE_EVENTS")

@@ -1,6 +1,6 @@
 # Gemini Subagent for Codex
 
-[简体中文](README.zh-CN.md) · [Configuration](plugins/gemini-subagent/README.md) · [MIT License](LICENSE)
+[简体中文](README.zh-CN.md) · [Agent installation guide](INSTALL.md) · [Security and permissions](SECURITY.md) · [Configuration](plugins/gemini-subagent/README.md) · [MIT License](LICENSE)
 
 Let Codex delegate work to **Gemini CLI** or **Antigravity CLI** as managed,
 durable workers. Codex remains the controller: it starts jobs, collects results,
@@ -9,6 +9,20 @@ resumes conversations, cancels work, and verifies changes.
 This is a community plugin for **local Codex on macOS**. It runs the provider's
 CLI and uses your own provider account. It does not include Google binaries,
 credentials, a hosted service, or an API proxy.
+
+## Let your agent install and set it up
+
+Give your Codex agent this request:
+
+> Install and configure https://github.com/Liii8888/codex-gemini-subagent for
+> this project. Read INSTALL.md first, inspect the permissions, install the
+> plugin, and follow its setup skill. Then explain which provider is ready
+> and how I can ask you to delegate work to Gemini.
+
+[INSTALL.md](INSTALL.md) guides the installing agent through environment checks,
+installation, runner discovery, workspace setup, account readiness, and usage.
+The installed bundle includes all five skills plus their executable runner, so
+future Codex tasks can discover the workflow without reading this repository.
 
 ## What it does
 

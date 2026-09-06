@@ -48,7 +48,9 @@ this release is built around the CLI's interactive login profiles.
 ## Antigravity and named accounts
 
 Install `agy` separately from its official distribution. Verify that it exposes
-the `models`, `/usage`, and headless/session interfaces used by this runner.
+the `models`, `/usage`, `--input-format stream-json`, and headless/session
+interfaces used by this runner. Managed tasks use stdin so their text is not
+exposed in provider or supervisor process arguments.
 If it is not on `PATH`, set `GEMINI_SUBAGENT_AGY_BIN` to its absolute executable
 path before initialization, or pass `--binary` when adding an account.
 

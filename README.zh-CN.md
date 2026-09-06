@@ -1,12 +1,24 @@
 # Gemini Subagent for Codex
 
-[English](README.md) · [配置说明](plugins/gemini-subagent/README.md) · [MIT 许可证](LICENSE)
+[English](README.md) · [给 Agent 的安装指南](INSTALL.md) · [安全与权限](SECURITY.md) · [配置说明](plugins/gemini-subagent/README.md) · [MIT 许可证](LICENSE)
 
 让 Codex 像调用 subagent 一样，把任务交给 **Gemini CLI** 或 **Antigravity CLI**。
 Codex 负责启动、等待、获取结果、续接会话、取消任务和验证改动。
 
 这是用于 **macOS 本地 Codex** 的社区插件。使用你自己安装的官方 CLI 和账号，
 不附带 Google 程序、凭据、代登录服务或 API 代理。
+
+## 让你的 Agent 安装和配置
+
+把下面这句话交给 Codex：
+
+> 帮我安装并配置 https://github.com/Liii8888/codex-gemini-subagent ，用于当前项目。
+> 先读 INSTALL.md 并检查权限，再安装插件，按 setup Skill 完成配置。
+> 最后告诉我哪个 provider 已经可用，以及以后怎么让你调用 Gemini。
+
+[INSTALL.md](INSTALL.md) 是专门给安装 Agent 的入口，包含环境检查、安装、定位运行器、
+工作目录授权、账号检查和后续调用。安装包内有完整的 5 个 Skill 和运行脚本，
+新开的 Codex 任务可以自动发现它们，无需记住仓库里的命令。
 
 ## 已有功能
 

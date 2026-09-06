@@ -5,8 +5,9 @@ description: Safely stop a queued or running Gemini Subagent worker. Use only wh
 
 # Gemini Subagent Cancel
 
-Use `<plugin-root>/scripts/gemini_subagent.py`, where `<plugin-root>` is two
-directories above this file. Execute the exact bridge executable outside the
+Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
+`<plugin-root>/skills/<skill-name>/SKILL.md`. Resolve the installed file path;
+`Path(skill_file).resolve().parents[2]` is the plugin root. Execute the exact bridge executable outside the
 workspace sandbox.
 
 1. Resolve the exact job ID with `status --active --json` if necessary. Do not

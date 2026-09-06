@@ -5,8 +5,9 @@ description: Inspect Gemini Subagent jobs, capability-gated concurrency, user-de
 
 # Gemini Subagent Status
 
-Use `<plugin-root>/scripts/gemini_subagent.py`, where `<plugin-root>` is two
-directories above this file. Execute it outside the workspace sandbox with the
+Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
+`<plugin-root>/skills/<skill-name>/SKILL.md`. Resolve the installed file path;
+`Path(skill_file).resolve().parents[2]` is the plugin root. Execute it outside the workspace sandbox with the
 exact executable as the narrow approved prefix.
 
 ## Commands

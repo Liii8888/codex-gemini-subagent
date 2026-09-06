@@ -5,8 +5,9 @@ description: Delegate investigation, implementation, debugging, refactoring, or 
 
 # Gemini Rescue
 
-Use `<plugin-root>/scripts/gemini_subagent.py`, where `<plugin-root>` is two
-directories above this file.
+Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
+`<plugin-root>/skills/<skill-name>/SKILL.md`. Resolve the installed file path;
+`Path(skill_file).resolve().parents[2]` is the plugin root.
 
 ## Workflow
 

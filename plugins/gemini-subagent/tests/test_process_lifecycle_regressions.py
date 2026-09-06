@@ -989,6 +989,8 @@ raise SystemExit(bridge.worker_main(sys.argv[2]))
         job = self.reserve(provider="agy", timeout=60)
         job_id = job["job_id"]
         marker_path = gemini_subagent.job_dir(job_id) / "worker-identity.json"
+        supervisor_ready = self.temp_path / "quota-supervisor-ready"
+        cancel_gate = self.temp_path / "quota-cancel-gate"
         gemini_subagent.patch_job(
             job_id,
             {
@@ -1009,7 +1011,8 @@ import gemini_subagent as bridge
 
 job_id = sys.argv[2]
 formal_ready = Path(sys.argv[3])
-quota_ready = Path(os.environ["GEMINI_SUBAGENT_QUOTA_READY"])
+supervisor_ready = Path(os.environ["GEMINI_SUBAGENT_SUPERVISOR_READY"])
+cancel_gate = Path(os.environ["GEMINI_SUBAGENT_CANCEL_GATE"])
 bridge.account_is_keychain_profile = lambda account: True
 bridge.activate_account_under_lease = lambda *args, **kwargs: None
 bridge.sync_account_under_lease = lambda *args, **kwargs: None
@@ -1035,7 +1038,11 @@ def run_quota_command(command, **kwargs):
             and time.monotonic() < deadline
         ):
             time.sleep(0.01)
-        quota_ready.write_text(str(child[0].pid), encoding="ascii")
+        # The supervisor and actual CLI child have different PIDs. Keep the
+        # controller's handoff separate from the CLI's own readiness file.
+        supervisor_ready.write_text(str(child[0].pid), encoding="ascii")
+        while not cancel_gate.is_file() and time.monotonic() < deadline:
+            time.sleep(0.01)
         # Marker publication precedes the first communicate() call.  Give the
         # runner one scheduling turn to enter communicate before signalling.
         time.sleep(0.05)
@@ -1080,7 +1087,11 @@ raise SystemExit(bridge.worker_main(job_id))
                 job_id,
             ],
             cwd=PROJECT,
-            env=os.environ.copy(),
+            env=dict(
+                os.environ,
+                GEMINI_SUBAGENT_SUPERVISOR_READY=str(supervisor_ready),
+                GEMINI_SUBAGENT_CANCEL_GATE=str(cancel_gate),
+            ),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
@@ -1100,7 +1111,7 @@ raise SystemExit(bridge.worker_main(job_id))
             )
             def quota_pid_is_published() -> bool:
                 try:
-                    return int(self.quota_ready.read_text(encoding="ascii")) > 1
+                    return int(supervisor_ready.read_text(encoding="ascii")) > 1
                 except (FileNotFoundError, ValueError):
                     return False
 
@@ -1124,11 +1135,12 @@ raise SystemExit(bridge.worker_main(job_id))
                     f"worker_status={worker_status}, stderr={worker_error!r}, "
                     f"job_error={current_job.get('error')!r}, result_error={result_error!r}"
                 )
-            quota_pid = int(self.quota_ready.read_text(encoding="ascii"))
+            quota_pid = int(supervisor_ready.read_text(encoding="ascii"))
             self.assertEqual(
                 gemini_subagent.read_json(marker_path, {}).get("provider_pid"),
                 quota_pid,
             )
+            cancel_gate.touch()
 
             wait_until(
                 lambda: self.formal_ready.is_file() or worker.poll() is not None,

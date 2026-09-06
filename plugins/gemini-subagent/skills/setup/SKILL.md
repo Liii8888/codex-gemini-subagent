@@ -5,8 +5,9 @@ description: Verify strict Gemini Subagent readiness and configure local Antigra
 
 # Gemini Subagent Setup
 
-Use `<plugin-root>/scripts/gemini_subagent.py`, where `<plugin-root>` is two
-directories above this file. Run provider-touching commands outside the Codex
+Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
+`<plugin-root>/skills/<skill-name>/SKILL.md`. Resolve the installed file path;
+`Path(skill_file).resolve().parents[2]` is the plugin root. Run provider-touching commands outside the Codex
 workspace sandbox with the exact executable as the narrow approved prefix.
 
 ## First use

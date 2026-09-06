@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import argparse
 import hashlib
 import io
 import json
@@ -20,6 +21,16 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import agy_concurrency_probe as probe  # noqa: E402
+
+
+class CanonicalProbeLockTests(unittest.TestCase):
+    def test_real_entrypoint_rejects_alternate_lock_before_side_effects(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args = argparse.Namespace(lock_path=str(Path(folder) / "alternate.lock"))
+            with mock.patch.object(probe, "_private_artifact_dir") as artifacts:
+                with self.assertRaisesRegex(probe.ProbeError, "canonical per-user"):
+                    probe.execute_probe(args)
+            artifacts.assert_not_called()
 
 
 def passing_evidence(*, refresh_observed: bool = True, worker_count: int = 2) -> dict:

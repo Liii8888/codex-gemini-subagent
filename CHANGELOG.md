@@ -12,6 +12,10 @@ First public distribution of Gemini Subagent for Codex.
 - Resolve probe account data and the canonical authentication slot separately,
   so a custom job runtime cannot redirect the shared Keychain lock domain.
 - Add English and Chinese setup instructions, offline validation, and CI.
+- Add an agent-facing installation and first-use guide, with explicit runner
+  discovery and provider-readiness acceptance.
+- Send managed task prompts through stdin rather than process arguments.
+- Require the canonical per-user Keychain lock in the real concurrency probe.
 - Retain managed jobs, native session continuation, official CLI quota handling,
   account isolation, crash recovery, cancellation, and opt-in shared reads.
 

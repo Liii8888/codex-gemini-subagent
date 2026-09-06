@@ -1210,7 +1210,7 @@ def build_plan() -> dict[str, Any]:
         "phases": [
             "pin signed agy SHA-256, Team ID, version, and macOS build",
             "observe only the Keychain backend active_matches_profile boolean",
-            "start and pause two official agy processes by default; explicitly escalate to three",
+            "start and pause exactly two official agy processes",
             "close the parent flock FD, crash one provider, and verify the lock remains held",
             "resume the other providers in the requested order and verify final lock release",
             "resume one completed conversation under the same account/revision/cwd binding",
@@ -1230,6 +1230,9 @@ def _write_report(path: Path, report: dict[str, Any]) -> None:
 
 
 def execute_probe(args: argparse.Namespace) -> dict[str, Any]:
+    canonical_lock = canonical_auth_runtime_root() / ".antigravity-keychain.lock"
+    if Path(args.lock_path).expanduser().resolve() != canonical_lock.resolve():
+        raise ProbeError("Real probes must use the canonical per-user Keychain lock path.")
     cwd = Path(args.cwd).expanduser().resolve(strict=True)
     if not cwd.is_dir() or cwd in {Path("/"), Path.home()}:
         raise ProbeError("--cwd must be a narrow existing directory.")

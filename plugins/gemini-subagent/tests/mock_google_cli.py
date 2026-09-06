@@ -49,7 +49,19 @@ def main() -> int:
             time.sleep(0.05)
         return 0
 
-    prompt = option("-p") or ""
+    prompt = option("-p")
+    if prompt is None:
+        data = sys.stdin.read()
+        if option("--input-format") == "stream-json":
+            message = json.loads(data)
+            assert message["event"] == "user"
+            prompt = message["message"]["content"]
+        else:
+            prompt = data
+    capture_path = os.environ.get("MOCK_INPUT_CAPTURE")
+    if capture_path and prompt.strip() != "/usage":
+        with open(capture_path, "w", encoding="utf-8") as capture:
+            json.dump({"argv": args, "prompt": prompt}, capture)
     is_gemini = "--session-id" in args or "--resume" in args
     session = (
         option("--conversation")

@@ -39,6 +39,8 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
             {
                 "GEMINI_SUBAGENT_RUNTIME_ROOT": str(self.runtime),
                 "GEMINI_SUBAGENT_ALLOWED_ROOTS": str(PROJECT),
+                "GEMINI_SUBAGENT_GEMINI_BIN": str(PROJECT / "tests" / "mock_google_cli.py"),
+                "GEMINI_SUBAGENT_AGY_BIN": str(PROJECT / "tests" / "mock_google_cli.py"),
                 "GEMINI_SUBAGENT_TESTING": "1",
             },
         )
