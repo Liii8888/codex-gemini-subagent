@@ -4,6 +4,20 @@ This plugin runs a coding agent under your own OS and provider accounts. Review
 the permissions below before installation. A passing test suite or an agent's
 review is evidence about a particular version, not a security certification.
 
+## Published source review
+
+An independent Codex subagent applied `skill-vetter` to source commit
+`5aaab8851391a0aa2007ed0f39904b3fedff11f6`. Read the complete
+[review and repair verification](docs/SECURITY_REVIEW.md) and
+[61-file SHA256 inventory](docs/skill-vetter-files.json).
+Three MEDIUM code findings were repaired and independently rechecked.
+The rubric's strict verdict remains **HIGH / DO NOT INSTALL** because the
+bundle processes data externally and includes credential-sensitive capabilities.
+The report does not certify safe installation or override a user's trust policy.
+
+The later publication commit adds the report, inventory, and documentation links;
+the reviewed plugin files and executable code are unchanged from that source commit.
+
 ## What the plugin can access
 
 | Surface | Why it is used | Boundary |

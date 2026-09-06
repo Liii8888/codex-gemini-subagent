@@ -1,6 +1,6 @@
 # Gemini Subagent for Codex
 
-[简体中文](README.zh-CN.md) · [Agent installation guide](INSTALL.md) · [Security and permissions](SECURITY.md) · [Configuration](plugins/gemini-subagent/README.md) · [MIT License](LICENSE)
+[简体中文](README.zh-CN.md) · [Agent installation guide](INSTALL.md) · [Security and permissions](SECURITY.md) · [Source review](docs/SECURITY_REVIEW.md) · [Configuration](plugins/gemini-subagent/README.md) · [MIT License](LICENSE)
 
 Let Codex delegate work to **Gemini CLI** or **Antigravity CLI** as managed,
 durable workers. Codex remains the controller: it starts jobs, collects results,

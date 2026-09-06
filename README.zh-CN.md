@@ -1,6 +1,6 @@
 # Gemini Subagent for Codex
 
-[English](README.md) · [给 Agent 的安装指南](INSTALL.md) · [安全与权限](SECURITY.md) · [配置说明](plugins/gemini-subagent/README.md) · [MIT 许可证](LICENSE)
+[English](README.md) · [给 Agent 的安装指南](INSTALL.md) · [安全与权限](SECURITY.md) · [源码审查报告](docs/SECURITY_REVIEW.md) · [配置说明](plugins/gemini-subagent/README.md) · [MIT 许可证](LICENSE)
 
 让 Codex 像调用 subagent 一样，把任务交给 **Gemini CLI** 或 **Antigravity CLI**。
 Codex 负责启动、等待、获取结果、续接会话、取消任务和验证改动。

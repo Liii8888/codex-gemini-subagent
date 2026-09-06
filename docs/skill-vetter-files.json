@@ -1,0 +1,643 @@
+{
+  "schema_version": 2,
+  "source": "https://github.com/Liii8888/codex-gemini-subagent",
+  "source_commit": "5aaab8851391a0aa2007ed0f39904b3fedff11f6",
+  "source_tree": "d0a06a148304ff952bb7c7a9c15fec5f08ed7b02",
+  "source_commit_date": "2026-09-06T17:24:23+08:00",
+  "base_commit": "326a211271133af6d4483f159696a8549d0a85e3",
+  "version": "0.3.0",
+  "review_date": "2026-09-06",
+  "stage": "completed",
+  "files_reviewed": 61,
+  "total_bytes": 918051,
+  "total_lines": 23079,
+  "all_files_read": true,
+  "snapshot_matches_commit": true,
+  "review_method": "Full content reading of all 55 baseline tracked files; full reading of 6 added files and every subsequent change through final commit; no grep-only review. Offline mock tests and independent synthetic targeted probes. No descendant agents.",
+  "content_tree_sha256": "d0f411101961a8d083ec658d53d98d76825dffe64d8f5b5fa8ce4b816458c123",
+  "content_tree_sha256_format": "UTF-8 concatenation of sorted entries: sha256 + two ASCII spaces + repository-relative path + LF. File modes are recorded separately.",
+  "rubric": {
+    "name": "skill-vetter",
+    "declared_version": null,
+    "sha256": "d9da1b64e3b7891c323bb7e09a6b39b278de343dd769203f75cbe886c3f32056",
+    "verdict": "DO NOT INSTALL",
+    "risk_level": "HIGH"
+  },
+  "excluded": [
+    "Git object database and earlier history beyond the named baseline-to-final review",
+    "Untracked local runtime, credentials, personal memory, generated caches, and developer artifacts",
+    "Generated review report and manifest, published in a later documentation-only commit"
+  ],
+  "files": [
+    {
+      "path": ".agents/plugins/marketplace.json",
+      "mode": "100644",
+      "bytes": 391,
+      "lines": 20,
+      "sha256": "a9b992c95d7618dc7b4ea152e7599fcbb2755c6208035757379bad19cf616a49",
+      "git_blob": "7c869c3746718ce6f6ab818e3b18850cdbbceceb",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": ".github/workflows/tests.yml",
+      "mode": "100644",
+      "bytes": 512,
+      "lines": 23,
+      "sha256": "219704090caf937a42fe987f47cfc7cb7f8bc82a116f7e583f4ff3cb1b83bb41",
+      "git_blob": "7dab8e0b6eecacd74e48b9e4a1a191f6f257e820",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "bytes": 130,
+      "lines": 15,
+      "sha256": "0edb1624cbe6b1ec07fcce96011adc9b6314c889baf2d63108e622f2978fd025",
+      "git_blob": "3f9ac486f710e82460a612d2ea12f5df3e6eef69",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "AGENTS.md",
+      "mode": "100644",
+      "bytes": 942,
+      "lines": 18,
+      "sha256": "f657e68d6a2c764e1a5c32c8adba9718dc6cbdd2c0995687e44fbbc810abda40",
+      "git_blob": "e4323e5e3fdc6c7c8ae5645982a3dc9c16e5f45b",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "mode": "100644",
+      "bytes": 1392,
+      "lines": 25,
+      "sha256": "95e620d162625d403e5ed4c959089df75316e7a5a8500320c12109e755793c1d",
+      "git_blob": "c5582d474686f3dacf866020fbde675637235ba7",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "INSTALL.md",
+      "mode": "100644",
+      "bytes": 8248,
+      "lines": 147,
+      "sha256": "ec9137dc9b78eed98ff988f6ade65f3217723a23c8f52380c64184a00c859276",
+      "git_blob": "803f5ea1bc4a40ba9dd46e562169279482fd1c35",
+      "reviewed": true,
+      "review_basis": "full added file read plus every subsequent change reviewed"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "bytes": 1072,
+      "lines": 21,
+      "sha256": "f85ccc1ee4175d3c1563d3e6612aee29d267394ef9b9e94a0bdbecddfdda6e77",
+      "git_blob": "b8519222dab9346ecfc4899a9aff78b0906d4bf9",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "bytes": 5983,
+      "lines": 129,
+      "sha256": "d6aedf21d4f5f875d0b8e1d5afdc7957df223b4405ed744e02b57bf934c790aa",
+      "git_blob": "07c64123891c89bd7a7cd3374018647585436f9d",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "README.zh-CN.md",
+      "mode": "100644",
+      "bytes": 4665,
+      "lines": 98,
+      "sha256": "f6e1c0347a54ca91a279bfcc0ec27deb5b2b41acd9ea9d17f678f34fe80e5ed5",
+      "git_blob": "f5aea66ff680ba1fcaaf78e8c0e53ebd0bf0de9c",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "SECURITY.md",
+      "mode": "100644",
+      "bytes": 5268,
+      "lines": 82,
+      "sha256": "524a895ee329cc5b1258709479a610ab7d7dc6008a477d53609d2b0e8c1f1ac0",
+      "git_blob": "18c699d2363701615db7be7dd4c3c5c9924afefd",
+      "reviewed": true,
+      "review_basis": "full added file read plus every subsequent change reviewed"
+    },
+    {
+      "path": "docs/VALIDATION.md",
+      "mode": "100644",
+      "bytes": 2499,
+      "lines": 45,
+      "sha256": "95b473356fa15cd7facccbac2f73dbc1c256d12b3425c110bc1594383c9617a4",
+      "git_blob": "097ce4eaa5d29da8505d65c9299d47a6f2f2db6d",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/.codex-plugin/plugin.json",
+      "mode": "100644",
+      "bytes": 1226,
+      "lines": 36,
+      "sha256": "530f9fe28117404976c06297e76d298a876697a344be39dabae496194ae756df",
+      "git_blob": "6a8e2a61a2f7614f7672b00358de60772b677d67",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/AGENTS.md",
+      "mode": "100644",
+      "bytes": 4073,
+      "lines": 58,
+      "sha256": "bb2d11b166b2ab8368b30475ad8184389a3c23407e32b6c6c4f47aa189e1359c",
+      "git_blob": "3a1a209c48f39ad0c5be9977ba8813d434065178",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/LICENSE",
+      "mode": "100644",
+      "bytes": 1072,
+      "lines": 21,
+      "sha256": "f85ccc1ee4175d3c1563d3e6612aee29d267394ef9b9e94a0bdbecddfdda6e77",
+      "git_blob": "b8519222dab9346ecfc4899a9aff78b0906d4bf9",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/README.md",
+      "mode": "100644",
+      "bytes": 7276,
+      "lines": 165,
+      "sha256": "7160fccebc2145294f2b3f33b6094adb23d3b2b17227b22c658c72c7f0b099de",
+      "git_blob": "9e1cf16e0c61364b08916aae1c9e8e45d38685a6",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/account_schema.py",
+      "mode": "100644",
+      "bytes": 19161,
+      "lines": 513,
+      "sha256": "e1bb0a870f16092de4df7ee48c10742b2827a36610d6cc57e339a1c2b59cdefd",
+      "git_blob": "d959cbd6d16a493568e99380bed04a7fdc673a4d",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/agy_concurrency_probe.py",
+      "mode": "100755",
+      "bytes": 58947,
+      "lines": 1490,
+      "sha256": "22138a19b6268990a6a99ea8b97c768391c20d9ddd7dccc21f91debc563ad54c",
+      "git_blob": "dc8c2d320345bcd1e822cc4e8adebc85ed2a70fd",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/gemini_subagent.py",
+      "mode": "100755",
+      "bytes": 273895,
+      "lines": 6757,
+      "sha256": "2d07586bd898cf71f34a83370e7a61ed19df97b67789d735033ed1ee55db37c3",
+      "git_blob": "77e5b9531fbca8c0064318a022540e6f52d92ced",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/keychain_profiles.py",
+      "mode": "100644",
+      "bytes": 47603,
+      "lines": 1258,
+      "sha256": "7784f5e456ccdafb28a9391d7bae6d56f5b9f238bde6ddfde9760821c911933a",
+      "git_blob": "371f96158df2a35546a70f30ede9030e73fe50b5",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/login_journal.py",
+      "mode": "100644",
+      "bytes": 16494,
+      "lines": 413,
+      "sha256": "1a30d84439173f62941861b61e4cc1e4833a166332640305fd218c0359cab758",
+      "git_blob": "8e26e2e2f82d6ccb1464e25014cbfbef65cabbeb",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/quota_policy.py",
+      "mode": "100644",
+      "bytes": 15092,
+      "lines": 424,
+      "sha256": "203e62906e50e12f996848e91fb9d923e7135ca15ffd42004da4d678ea3571f3",
+      "git_blob": "0b171a4384d21ad3ac44ac14dc9dfffcf6d09fac",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/scripts/runtime_paths.py",
+      "mode": "100644",
+      "bytes": 1031,
+      "lines": 26,
+      "sha256": "ffcfac9e60c569dbbc24de17eabfe453b869bf65ae47226339dfcad4b2be3775",
+      "git_blob": "9ea5b6dadeb5ee1f0c4397bee1e7e2f6aff7910e",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/cancel/SKILL.md",
+      "mode": "100644",
+      "bytes": 1105,
+      "lines": 23,
+      "sha256": "1863b0189f4574c6251bfd725841a5b797a7adcc2c0b93e086e80aff40f68960",
+      "git_blob": "9e874565ab5f665bf8ae624be85c6bdd45cf21e8",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/cancel/agents/openai.yaml",
+      "mode": "100644",
+      "bytes": 261,
+      "lines": 4,
+      "sha256": "1a203a506773b6cd88086fbf60b8b18886c55147df1027fbd1d1603318d16af4",
+      "git_blob": "92fb10bef0308ad84bf5e95be470a088e27159ae",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/rescue/SKILL.md",
+      "mode": "100644",
+      "bytes": 5139,
+      "lines": 89,
+      "sha256": "ba1f7386d66cfb285ca1b376228528f04dc08d502d4c533a455218d5a23bb0d4",
+      "git_blob": "dd6acdc24a97fe687900fb2be71d9a12bbf18b07",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/rescue/agents/openai.yaml",
+      "mode": "100644",
+      "bytes": 294,
+      "lines": 4,
+      "sha256": "55935f536b7b920c2b9a676a3f60906ae0ae578880ccaec908087100ec4b105d",
+      "git_blob": "868b55dbd5853c1f1bb7ef278de1f014d15508c0",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/result/SKILL.md",
+      "mode": "100644",
+      "bytes": 1680,
+      "lines": 33,
+      "sha256": "ffefea0ae39fb646b3e7f0cc2ccc97a6b76c2cbc8dba79e7a371f76c7da9c6aa",
+      "git_blob": "81d1e56a53cc95b8fa1dc9090ea15c46d28986ac",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/result/agents/openai.yaml",
+      "mode": "100644",
+      "bytes": 238,
+      "lines": 4,
+      "sha256": "b5fc95403ac9794bb35fcee4f6becd25700491fffc51123d583b3fd1104955d2",
+      "git_blob": "83654b9708c3277bd4172f589a089cf63d34b7fe",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/setup/SKILL.md",
+      "mode": "100644",
+      "bytes": 6730,
+      "lines": 113,
+      "sha256": "f84116ccb6940512da759d2e68d59a25f9a72741357873f0aa3c8ea3aabf611a",
+      "git_blob": "25103a48ae3445f377bf3eebbff88cdb2ebbab24",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/setup/agents/openai.yaml",
+      "mode": "100644",
+      "bytes": 290,
+      "lines": 4,
+      "sha256": "299cb0af30e58392d7a557e05c263634a6e80e361789be51d82248253a0c996d",
+      "git_blob": "8797edfc0ed60399128ca65b2e9a1dfb96ac5a3b",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/status/SKILL.md",
+      "mode": "100644",
+      "bytes": 4074,
+      "lines": 66,
+      "sha256": "bf78e63f68393b29ab11c3ff24e1e4c6d86b8ae938afe9b21c2d577fa60d7b85",
+      "git_blob": "45a3c2ca0fa0a7dd45afb758f021817f1da08159",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/skills/status/agents/openai.yaml",
+      "mode": "100644",
+      "bytes": 287,
+      "lines": 4,
+      "sha256": "24f447045f1f853ad1b4091491be28de3132887db0f95c9721a37a3f5cbfe739",
+      "git_blob": "aa26561910d643deed1fa9fe57050c7a811fbb25",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/_test_bootstrap.py",
+      "mode": "100644",
+      "bytes": 730,
+      "lines": 22,
+      "sha256": "d05102be7e23660e5cf89773af4b2e772424655af11fc800dde8c8263c926df8",
+      "git_blob": "8c24adf01981fe9b364b7792d09013eac7962c42",
+      "reviewed": true,
+      "review_basis": "full added file read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/mock_google_cli.py",
+      "mode": "100755",
+      "bytes": 5698,
+      "lines": 172,
+      "sha256": "7a3ad2aba9493004fc68cac2967d33f3e5d0a01569c9a88a74cc3605baf20f0f",
+      "git_blob": "ad0c16d0fcd7498cba38dc843654ed35652a6b75",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/support/gemini_test_isolation.py",
+      "mode": "100644",
+      "bytes": 942,
+      "lines": 27,
+      "sha256": "3a2d7d7ce386e3724aeddb6eaa40a73c56c166bf6e5df4ccab6f4d8e2b522c8b",
+      "git_blob": "2f9c2dfc16c5f843fc468d90234dbb404f4e26af",
+      "reviewed": true,
+      "review_basis": "full added file read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/support/sitecustomize.py",
+      "mode": "100644",
+      "bytes": 128,
+      "lines": 5,
+      "sha256": "6e0cc0c6dd52b3861f1d4369d9c265d386400887fb471733a02e54b32ce5bcb0",
+      "git_blob": "1a673ad76dd190462aa5947336188b5055452241",
+      "reviewed": true,
+      "review_basis": "full added file read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_account_schema.py",
+      "mode": "100644",
+      "bytes": 19078,
+      "lines": 500,
+      "sha256": "f0ee3ce53064e8249a51c4cdb1cddc6acf16f0886ccabc2bf4b77ac65e6ceae7",
+      "git_blob": "154d98725b858c498d456a7384ff5c7c5357515d",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_account_session_boundaries.py",
+      "mode": "100644",
+      "bytes": 11586,
+      "lines": 301,
+      "sha256": "411a74593455d266bfb8268e01e4d66a6f52c44bf44121505782c63bebba3c22",
+      "git_blob": "dc614138667f0c9e06530cb6226ff7975257b749",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_agy_concurrency_probe.py",
+      "mode": "100644",
+      "bytes": 19051,
+      "lines": 466,
+      "sha256": "19f536e030114d47d7ff88c5f6f0096d534ffed6f950a34005357586985e573f",
+      "git_blob": "ddf1ffea3d64c766ce0bf3c13776d6fffb51d767",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_auth_admission_recovery.py",
+      "mode": "100644",
+      "bytes": 21835,
+      "lines": 625,
+      "sha256": "8688476a5fa3b25386fd364c09be74e3be2281d5999b5c6e3f35d7c59a683c42",
+      "git_blob": "47ce81931770f0421a667d2e6216e7f97bff9134",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_cancel_identity_authorization.py",
+      "mode": "100644",
+      "bytes": 11871,
+      "lines": 334,
+      "sha256": "1d5ebacf4e4d580302b96d27ae12ccebc5bc980ea81f728502b33768a9bdac28",
+      "git_blob": "bd7baa3f8d7f019a7e2091cdcdc443124f29a4d8",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_concurrency_cli.py",
+      "mode": "100644",
+      "bytes": 21118,
+      "lines": 527,
+      "sha256": "4a20ce13233070f29a3fdd16e3c92364e254b61c2edda2d6b5e820e3a8e4c99b",
+      "git_blob": "59eeb26810369f759215e8368c0783b9bdfe6903",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_gemini_login_lock.py",
+      "mode": "100644",
+      "bytes": 7589,
+      "lines": 205,
+      "sha256": "6cacf4507049beaff4e885f88acb2ed601b4ab97cd99f5c9a00cc3969db47ba6",
+      "git_blob": "ec1768d1e1d5f7bad6cbc64cea5272892ae68805",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_keychain_profiles.py",
+      "mode": "100644",
+      "bytes": 38730,
+      "lines": 983,
+      "sha256": "22ee70d6c9c468c1b1fed48e9775694b2101300289961399aefffc036452b979",
+      "git_blob": "65bca703b6175ba48ffc9e67d75590d53ef01bf5",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_keychain_runtime_integration.py",
+      "mode": "100644",
+      "bytes": 29104,
+      "lines": 750,
+      "sha256": "f2b7352b23128ca92e683644995ef5461597b79b4da6efa686a504e89bc7acaa",
+      "git_blob": "833a2557c0df59bc3addb2284a9c697c580f6fd1",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_login_journal.py",
+      "mode": "100644",
+      "bytes": 6267,
+      "lines": 161,
+      "sha256": "6166f6f3ceb820a00949f18791e75da9ee08379ef5f8f364909b99e54dc9758a",
+      "git_blob": "ac7078a9fbfb55503faf5e4e33c688d5dcee69de",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_login_recovery_integration.py",
+      "mode": "100644",
+      "bytes": 18012,
+      "lines": 469,
+      "sha256": "40d68621f65839f28a1c991f4bef7ba54c9a34f5215cfd331792fd9d7c674d25",
+      "git_blob": "85215c8f91e601b923d8e6486261f17ec5311645",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_orphan_provider_recovery.py",
+      "mode": "100644",
+      "bytes": 21515,
+      "lines": 570,
+      "sha256": "d7abbba3fd3ffe3d72c9af590c4230949e35b9cead51c0a53903b2898e6ee19d",
+      "git_blob": "b9f67b0598daec526e0bac14e9e0a2a148e6e84f",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_process_lifecycle_regressions.py",
+      "mode": "100644",
+      "bytes": 48282,
+      "lines": 1185,
+      "sha256": "b4562ede92ae903d82b887e85557819b73a73e42c4be56c651610b3551b017d9",
+      "git_blob": "386fd484b99eb97c4b4e32a4cf89c9acff720bab",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_prompt_privacy.py",
+      "mode": "100644",
+      "bytes": 2361,
+      "lines": 53,
+      "sha256": "f2ca687a5a89344bcb71cd48806ba6cb7e6162c60e0371650e2cba565990a341",
+      "git_blob": "b2ebe645b906ed665d6db0dbe96c87bd0debaf73",
+      "reviewed": true,
+      "review_basis": "full added file read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_provider_cleanup.py",
+      "mode": "100644",
+      "bytes": 5723,
+      "lines": 162,
+      "sha256": "a4d1f17e07852d6cf4d2740ed9256684f02498a0e4377c7f791434c900dcc8bf",
+      "git_blob": "531d7b632b45f68539e1f8a80e44c18fd034b27b",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_public_defaults.py",
+      "mode": "100644",
+      "bytes": 4794,
+      "lines": 103,
+      "sha256": "09ea746826ec8d1206c3c966ddc46af0664ad6134f7dc26e98009399a8add517",
+      "git_blob": "e0e877e132a9b26aee2c885fc733b23aaabc2381",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_quota_policy.py",
+      "mode": "100644",
+      "bytes": 11884,
+      "lines": 323,
+      "sha256": "e58195b9a68b843157a7531ae6addf4f961aa402acd38a522d8683ae17178007",
+      "git_blob": "79baa99347c50864777eeabdf5cf5c3f2395df39",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_quota_probe_cancel.py",
+      "mode": "100644",
+      "bytes": 7961,
+      "lines": 213,
+      "sha256": "0d836f4ef53944f373adbe64942b69a6d0d254911f94947b58ae125ac54185ec",
+      "git_blob": "801f72895b41e08d5a15a7714cbf0607e902fa06",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_runtime.py",
+      "mode": "100644",
+      "bytes": 7316,
+      "lines": 223,
+      "sha256": "0ae14a797a50b39cdb50531d5fa85f2486090250f94cb3a056405693f9270a9d",
+      "git_blob": "234a8ff0bcef6879c0bc4923b40128c576a07f64",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_runtime_migration.py",
+      "mode": "100644",
+      "bytes": 6245,
+      "lines": 155,
+      "sha256": "f6d7d30d257687b9d16c2373b8573012a8d800246638ea76961a379be5520e0c",
+      "git_blob": "dcbeabf15ebb305091e5a3ffdbe52917d3e5a859",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_session_revision.py",
+      "mode": "100644",
+      "bytes": 10727,
+      "lines": 281,
+      "sha256": "fdc406736840dff3d6e21e87121d9f47c7c816320117a277eda47a543010efab",
+      "git_blob": "7cea4787437b86ac54b05fa36ac7d18dabd11fd8",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_shared_read_concurrency.py",
+      "mode": "100644",
+      "bytes": 13049,
+      "lines": 322,
+      "sha256": "a8b8e1737c536e75489abe856ce9cb3776113616e86e1f4e3c452d418881c023",
+      "git_blob": "506a873d287329f183a9ec222b70fec3e101c832",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_shared_read_worker_execution.py",
+      "mode": "100644",
+      "bytes": 42147,
+      "lines": 1118,
+      "sha256": "26ec40accc2c573affe5094f08fca2eeeedd71f085b3f4fa7937459cb1b7782e",
+      "git_blob": "8620002fe412cf03495f45abc731334ffffa263e",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "plugins/gemini-subagent/tests/test_strict_agy_readiness.py",
+      "mode": "100644",
+      "bytes": 25212,
+      "lines": 649,
+      "sha256": "8394342d8720af7e201b9601bbfd37826a19a7c0045e15397bc191c8e3bdd043",
+      "git_blob": "0845660d1b70fafb38c5e80674b3e7ea1eb6b3ed",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    },
+    {
+      "path": "tools/check_package.py",
+      "mode": "100644",
+      "bytes": 2026,
+      "lines": 47,
+      "sha256": "c76b6a7eb5051d18107c4685496fadb55270f772459fd250a7affc350736c7eb",
+      "git_blob": "04120cf143d5f5d36cbaecfce353cfaf8c28e4b6",
+      "reviewed": true,
+      "review_basis": "full baseline read plus every subsequent change reviewed"
+    }
+  ]
+}

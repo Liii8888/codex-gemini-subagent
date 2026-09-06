@@ -29,6 +29,16 @@ account identities, local deployment notes, provider binaries, credential
 records, and behavioral reports are excluded from the distribution. This is
 a scoped release check, not a claim of an independent security audit.
 
+## Independent subagent review
+
+The [published skill-vetter report](SECURITY_REVIEW.md) binds all 61 source files
+at commit `5aaab8851391a0aa2007ed0f39904b3fedff11f6`; its
+[SHA256 inventory](skill-vetter-files.json) permits exact content comparisons.
+The reviewer independently passed all 205 tests and checked three repaired
+MEDIUM findings with synthetic probes. The strict installation rubric remains
+HIGH / DO NOT INSTALL; this is an AI source review, not a third-party certification.
+The following publication commit adds only review evidence and documentation links.
+
 ## What these results do not prove
 
 - Current availability of a provider CLI, model, account, or quota endpoint.
