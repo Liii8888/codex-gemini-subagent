@@ -25,3 +25,9 @@ Summarize the worker's actual outcome for the user. For write jobs, independentl
 inspect changed files and relevant verification before claiming completion. A
 failed worker result may still contain useful diagnostics, but clearly preserve
 its failed state and error.
+
+`completed`, exit code 0, and provider `SUCCESS` are execution status, not proof
+that the user's goal was met. Antigravity may soft-deny a tool and still return
+success. Inspect the response and relevant stderr for reported permission limits
+or unfinished work, and state those limits without treating all stderr as an
+error or bypassing the user's approval policy.

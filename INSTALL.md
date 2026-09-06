@@ -126,6 +126,9 @@ Do not enable `--unsafe-bypass`, run a live concurrency probe, or enable shared
 reads merely to make installation or a smoke test succeed. Those actions have
 their own explicit user requirements in the skills. Do not claim that `read`
 forbids every tool-level write; it uses the provider's own plan/sandbox controls.
+An exit code of 0 or a `completed` job is not proof that the requested goal was
+met. Check the answer and any relevant permission warnings; the provider may
+soft-deny a tool and still return success. Report incomplete work accurately.
 
 ## 5. Report concrete acceptance
 

@@ -34,6 +34,11 @@ Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
    and keeps the prior job immutable.
 7. After a write job, inspect the resulting files and run proportionate
    verification before accepting the worker result.
+8. `completed`, exit code 0, or provider `SUCCESS` describes execution status,
+   not task acceptance. Check the answer and relevant stderr when it reports
+   permission limits or incomplete work; Antigravity can soft-deny a tool while
+   still returning success. Report remaining work and use normal authorization
+   boundaries. Do not treat every stderr message as a failure.
 
 ## Options
 
