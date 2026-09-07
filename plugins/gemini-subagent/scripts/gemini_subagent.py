@@ -2943,6 +2943,10 @@ def build_provider_command(job: dict[str, Any], account: dict[str, Any]) -> tupl
         raise BridgeError(f"CLI binary is missing or not executable: {binary}")
     if job["provider"] == "agy":
         command = [binary]
+        if IS_WINDOWS:
+            # Keep agy's workspace aligned with the directory already admitted
+            # by the runner. A process cwd alone is not a workspace grant.
+            command += ["--add-dir", job["cwd"]]
         if job.get("conversation_id"):
             command += ["--conversation", job["conversation_id"]]
         if job.get("model"):
