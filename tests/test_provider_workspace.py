@@ -2,12 +2,32 @@ from __future__ import annotations
 
 import _test_bootstrap  # noqa: F401
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import gemini_subagent as bridge
 
 
 class ProviderWorkspaceTests(unittest.TestCase):
+    def test_file_creation_guidance_does_not_change_other_provider_or_read_prompts(self):
+        task = "Create one file in the admitted project."
+        cwd = Path("/synthetic/project")
+        prompts = {}
+        for windows in (False, True):
+            for provider in ("agy", "gemini"):
+                for mode in ("read", "write"):
+                    with mock.patch.object(bridge, "IS_WINDOWS", windows):
+                        prompts[windows, provider, mode] = bridge.managed_prompt(
+                            task, mode, cwd, provider=provider
+                        )
+        for provider, mode in (("agy", "read"), ("gemini", "read"), ("gemini", "write")):
+            self.assertEqual(prompts[True, provider, mode], prompts[False, provider, mode])
+        write = prompts[True, "agy", "write"]
+        self.assertIn("IsArtifact=false", write)
+        self.assertIn("if the installed tool schema exposes that parameter", write)
+        self.assertIn("only inside the stated working directory", write)
+        self.assertIn(task, write)
+
     def test_windows_workspace_is_one_literal_admitted_directory(self):
         cwd = r"E:\项目 with spaces & symbols\fixture"
         for mode in ("read", "write"):

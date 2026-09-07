@@ -1,21 +1,19 @@
 # Setup and configuration
 
-[Install the Codex plugin](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0-alpha.1/README.md#install-in-codex) first, or clone the
-repository and set `SUBAGENT` to the absolute path of
+[Install the Codex plugin](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0/README.md#install-in-codex)
+first, or clone the repository and set `SUBAGENT` to the absolute path of
 `plugins/gemini-subagent/scripts/gemini_subagent.py`.
 
-**0.4.0-alpha.1 is a prerelease; native Windows acceptance is pending.** The
-adaptation targets Windows 11 23H2+ x64, PowerShell, and native Python 3.10+ x64.
-Use official `agy` for a new setup, preserving an existing or requested Gemini
-CLI configuration. Development Windows named agy profiles require the pinned
-native contract described below; shared reads remain disabled. These changes
-are not present in the immutable alpha.1 release.
+**0.4.0 targets macOS and native Windows 11 23H2+ x64**, PowerShell and Python
+3.10+ x64. Prefer official `agy` for a new setup; preserve a working or requested
+Gemini CLI configuration. Windows named agy profiles require the pinned native
+contract below; shared reads remain disabled.
 
-Read the bundled [platform reference](references/platforms.md). The 23H2 lab
-proved offline native lifecycle and actual Codex-controlled reads/resume, but
-project writes failed, real timeout was not triggered, and first-time official
-login is unproven. Single-account release acceptance remains pending; the
-existing 23H2 client is an accepted test target, and 24H2+ is additional coverage.
+Read the bundled [platform reference](references/platforms.md). Windows evidence
+covers ordinary-user native control, existing authentication, Codex-controlled
+reads/resume, real agy file creation/editing, cancellation and deadline cleanup.
+Consult version-bound release assets for exact-source results. First-time
+Windows login remains unverified; 24H2+ testing is additional coverage.
 
 The examples below use macOS `python3`. On Windows, obtain `$InstalledPath`
 from the actual Codex installation metadata, resolve `$Python` to a verified
@@ -29,7 +27,7 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 ```
 
 Do not guess a cache directory, execute a `.py` association, rely on a shebang,
-or substitute WSL. See the [installation preflight](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0-alpha.1/INSTALL.md) and the
+or substitute WSL. See the [installation preflight](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0/INSTALL.md) and the
 [official Windows](https://learn.chatgpt.com/docs/windows/windows-app) and
 [Antigravity](https://antigravity.google/docs/cli/install) setup guides.
 

@@ -34,18 +34,19 @@ The runtime ZIP is available for users who want only the local marketplace and
 plugin payload, without a full development checkout. Keep the extracted source
 for reinstall/update, and let Codex manage its installed copy.
 
-This layout ships in **v0.4.0-alpha.2**. The already published
-`v0.4.0-alpha.1` assets and historical file counts remain unchanged.
+This layout was introduced in **v0.4.0-alpha.2** and is retained in **v0.4.0**.
+Older tags, assets and historical file counts remain unchanged.
 
 ## Channels
 
-- `main` and `v0.3.0` remain the stable macOS entry during 0.4 testing.
-- `codex/public-release` is the temporary 0.4 development branch. Its PR stays
-  unmerged until stable Windows acceptance passes.
-- Windows preview users explicitly select `v0.4.0-alpha.2`; a branch checkout
-  or an unpublished tag is never an installed-release claim.
-- Keep the plugin and marketplace names stable. Select one source in a Codex
-  home; use separate test homes when comparing versions.
+- `codex/public-release` is the temporary 0.4 development branch; use the PR
+  and exact candidate validation to prepare promotion to `main`.
+- While the stable release is a draft, `main`/Latest remain `v0.3.0` and the
+  public Windows preview remains `v0.4.0-alpha.2`.
+- After authorized promotion, `main` and `v0.4.0` become the cross-platform
+  stable entry. Keep earlier tags immutable; do not move an existing release tag.
+- Keep plugin and marketplace names stable. A branch checkout or draft release
+  is not a published-install claim. Use separate test homes to compare versions.
 
 Use Git and GitHub CLI directly for releases. No publishing Skill or provider
 model call is required to build, audit, tag, or publish.
@@ -75,7 +76,7 @@ model call is required to build, audit, tag, or publish.
    Bind external validation results
    to that commit and manifest; never relabel older live results as new runs.
 
-## Publish an immutable preview
+## Publish an immutable preview (historical alpha.2 procedure)
 
 After the candidate's CI and native checks pass, create an annotated tag on
 that exact commit and push the branch and tag. Create a release with
@@ -95,6 +96,16 @@ Public distribution here means GitHub releases and Codex repo marketplaces.
 Submission to the official plugin directory is a separate milestone.
 
 ## Stable promotion and rollback
+
+Prepare a complete **draft** against the frozen release commit only after its
+local/native checks and CI pass. For `v0.4.0`, use `gh release create` with
+`--verify-tag --draft --latest=false` and without `--prerelease`. Attach the
+source/runtime archives, both manifests, checksums and sanitized validation.
+Verify the draft files by download. Preparing a release does not itself publish
+it or merge the PR. On authorized publication, merge the reviewed candidate,
+verify that the tagged source is the accepted source, publish the draft and mark
+it Latest; then verify the public download and pinned marketplace install.
+
 
 Only merge and publish a new `v0.4.0` after the single-account Windows 11 23H2+
 x64 native gate passes. The retained 23H2 client is an accepted test target;

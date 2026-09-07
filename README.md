@@ -7,38 +7,36 @@ durable workers. Codex remains the controller: it starts jobs, collects results,
 resumes conversations, cancels work, and verifies changes.
 
 This community plugin runs official provider CLIs under your own account.
-**Stable macOS: `v0.3.0`. Windows preview: `v0.4.0-alpha.2`.** Windows 11
-23H2+ x64, PowerShell, and native Python 3.10+ x64 are the stable target.
-The existing 23H2 client may satisfy release acceptance; 24H2+ testing is
-additional coverage, not a prerequisite.
+**Version 0.4.0 supports macOS and native Windows 11 23H2+ x64**, with Python
+3.10+ and PowerShell on Windows. The tested Windows client is 23H2; 24H2+
+is additional coverage, not a release prerequisite.
 
-The 23H2 ordinary-user lab passed required offline native tests and demonstrated
-Codex-controlled agy reads and native continuation. **Windows release acceptance
-has not passed:** project writes failed and real timeout was not triggered.
-First-time official Windows login is unproven; this release's authentication
-checks may reuse explicitly authorized test credentials. The Codex test retained normal
-exact-command approvals; it was not approval-free sandbox execution.
+The ordinary-user Windows lab has observed real agy file creation and editing,
+native continuation, cancellation during a model response, and actual deadline
+expiry with OS-confirmed process cleanup. Review the release's exact-commit
+validation assets before treating a build as accepted. First-time official
+Windows login remains unverified; the lab reused authorized test credentials.
+Codex integration retained normal exact-command approvals.
 
-Alpha.2 adds Agent-invoked saving and selection of named **agy**
-accounts using Windows Credential Manager, bounded to verified agy 1.1.27 x64
-and the ordinary desktop user. It does not manage Codex credentials; Windows shared reads stay disabled. No Google
-binaries, credentials, hosted service, or API proxy are included. See the
-[bundled platform guide](plugins/gemini-subagent/references/platforms.md) and
+Named **agy-only** accounts use the OS credential store: Keychain on macOS,
+Credential Manager on Windows. Windows profiles are bounded to the verified
+agy 1.1.27 x64 binary and ordinary desktop user. Windows shared reads stay
+disabled. No provider binaries, credentials, service or API proxy are bundled.
+See the [platform guide](plugins/gemini-subagent/references/platforms.md) and
 [version-bound evidence](docs/VALIDATION.md).
 
-Alpha.2 ships a lean universal plugin: tests and development
-tools stay outside it. OS adapter sources remain shared, with no bundled provider
-binaries or extra platform dependencies. A separate runtime ZIP accompanies full
-source archives; existing alpha.1 assets are unchanged.
-See [packaging](docs/RELEASING.md#install-payload).
+One lean universal plugin contains the five shared skills and runtime adapters.
+Tests and development tools remain outside the installable directory. Releases
+provide a runtime ZIP plus full source archives; older tags and assets remain
+unchanged. See [packaging](docs/RELEASING.md#install-payload).
 
 ## Let your agent install and set it up
 
 Give your Codex agent this request:
 
 > Install and configure https://github.com/Liii8888/codex-gemini-subagent for
-> this project. Select stable v0.3.0 on macOS, or the experimental
-> v0.4.0-alpha.2 on Windows. Read the selected version's INSTALL.md, inspect the permissions, install the
+> this project using v0.4.0 on macOS or Windows. Read the selected version's
+> INSTALL.md, inspect the permissions, install the
 > plugin, and follow its setup skill. Then explain which provider is ready
 > and how I can ask you to delegate work to Gemini.
 
@@ -55,7 +53,7 @@ future Codex tasks can discover the workflow without reading this repository.
 - Antigravity quota and reset information through the official `agy /usage` CLI.
 - Optional named Antigravity accounts backed by the OS credential store, with
   cooldowns and bounded failover for eligible new jobs. macOS uses Keychain;
-  development Windows profiles require the pinned native credential contract.
+  Windows profiles require the pinned native credential contract.
   Save an existing login with `account import-current`; no login watcher is required.
 - Serialized execution by default. An experimental, explicitly enabled
   capability allows at most two same-account Antigravity read workers after
@@ -64,33 +62,29 @@ future Codex tasks can discover the workflow without reading this repository.
 
 ## Install in Codex
 
-Requirements: macOS, or the experimental native Windows target above; Python
+Requirements: macOS or the native Windows target above; Python
 3.10+, Git, a Codex CLI with plugin commands, and an installed official provider
 CLI. Prefer `agy` for a new setup; preserve a requested or working `gemini`
 configuration. Complete the provider's
 official interactive sign-in yourself. A subscription alone does not guarantee
 access to every CLI, model, or quota endpoint.
 
-After reviewing the source, select **one** channel. Stable macOS:
+After reviewing the source, install the published version:
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.3.0
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0
 codex plugin add gemini-subagent@gemini-subagent-public
 ```
 
-Experimental Windows (or an explicitly selected macOS preview):
-
-```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.2
-codex plugin add gemini-subagent@gemini-subagent-public
-```
+The older `v0.3.0` tag remains available for macOS rollback. Windows rollback
+uses a previously working Windows release; `v0.3.0` does not support Windows.
 
 Start a **new Codex task or CLI session** after installation. The public bundle
 uses the same `gemini-subagent` plugin name as earlier personal builds; select
 one installation source for use. The [official plugin guide](https://learn.chatgpt.com/docs/plugins)
 explains marketplace discovery and new-session pickup.
 
-The versioned commands require that prerelease tag to exist; an unreleased
+The versioned commands require the selected release tag to exist; an unreleased
 checkout is not evidence of a published tag. For Windows preflight, consult the
 [official Codex Windows guide](https://learn.chatgpt.com/docs/windows/windows-app)
 and [official Antigravity installation guide](https://antigravity.google/docs/cli/install).
@@ -115,7 +109,7 @@ Ask Codex, for example:
 ## Use the runner directly
 
 ```bash
-git clone --branch v0.3.0 https://github.com/Liii8888/codex-gemini-subagent.git
+git clone --branch v0.4.0 https://github.com/Liii8888/codex-gemini-subagent.git
 cd codex-gemini-subagent
 SUBAGENT="$PWD/plugins/gemini-subagent/scripts/gemini_subagent.py"
 
@@ -133,7 +127,9 @@ python3 "$SUBAGENT" sessions
 ```
 
 `--mode write` requests implementation work through the provider's own approval
-controls. Project writes did not pass the Windows preview live test. Follow up with `start --resume <job-id> --prompt-file <file> --wait`.
+controls. On Windows, ordinary project files must use the declared non-artifact
+file parameters; the runner includes this guidance and the admitted workspace.
+Verify actual file contents. Follow up with `start --resume <job-id> --prompt-file <file> --wait`.
 For Antigravity account import, multi-account setup, paths, and concurrency,
 see the [configuration guide](plugins/gemini-subagent/README.md).
 
@@ -159,8 +155,9 @@ sessions are not migrated across operating systems.
 
 ## Boundaries and compatibility
 
-- Windows adaptation is experimental. The 23H2 client meets the OS requirement;
-  the single-account live release gate remains pending. Linux is not a release target.
+- Windows support is scoped to ordinary-user single-account agy CLI operation.
+  First-time Windows login, desktop App integration, shared reads and optional
+  Gemini CLI live support have separate acceptance scopes. Linux is not a release target.
 - `read` requests the provider's plan/approval mode and sandbox. It is an intent
   boundary, **not a hard per-tool deny list**.
 - OS credential switching and shared-read concurrency are unofficial compatibility

@@ -16,7 +16,7 @@ bundle processes data externally and includes credential-sensitive capabilities.
 The report does not certify safe installation or override a user's trust policy.
 
 That report covers the historical 0.3.0 source and its publication follow-up.
-**It does not cover the 0.4.0-alpha.1 Windows adaptation.** Do not apply the old
+**It does not cover the 0.4 Windows runtime.** Do not apply the old
 inventory or verdict as a current-code verification result.
 
 ## What the plugin can access
@@ -111,18 +111,19 @@ UUID target. Mock runtime isolation is injected by the test harness only. Do not
   Runtime overrides and alternate home variables cannot create another credential
   lock domain. OS locks, ACLs, and background process cleanup require native proof.
 
-## Windows preview evidence and limits
+## Windows evidence and limits
 
-The 23H2 lab used a verified ordinary desktop token. Native ACL/lock, ownership,
-crash cleanup, and rollback fixtures passed. That evidence is separate from
-complete single-account release acceptance and from fully sandbox-contained Codex execution: exact
-one-time host approvals were needed for the observed plugin commands.
+The 23H2 lab used an ordinary desktop token. Native ACL/lock, ownership,
+crash cleanup and rollback fixtures passed. This is separate from fully
+sandbox-contained Codex execution: exact one-time host approvals were needed
+for the observed plugin commands. agy project file creation/editing, actual
+cancellation and deadline cleanup have separate version-bound live evidence.
 
-Real project writes failed, real timeout was not triggered, and official first
-login is unproven. Do not widen provider permissions or migrate credentials as a
-public workaround. Windows named profiles/shared reads stay disabled. The
-[bundled platform reference](plugins/gemini-subagent/references/platforms.md)
-and [validation record](docs/VALIDATION.md) define the tested boundaries.
+First-time official Windows login remains unverified. Do not widen permissions
+or migrate credentials as a public workaround. Named agy profiles require their
+pinned native binary/record contract; Windows shared reads remain disabled.
+The [platform reference](plugins/gemini-subagent/references/platforms.md) and
+[validation record](docs/VALIDATION.md) define the tested boundaries.
 
 ## Standalone Windows validation
 

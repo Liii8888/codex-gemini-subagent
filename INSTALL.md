@@ -17,22 +17,19 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
 - Establish the absolute project directory from the current task. Use that
   directory for initialization and jobs; the plugin checkout is not the user's
   project. If the intended project cannot be determined, ask for it.
-- Select the channel before installation: stable macOS is `v0.3.0` (follow its
-  [versioned guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.3.0/INSTALL.md));
-  Windows preview or an explicitly requested macOS preview uses this
-  **0.4.0-alpha.2** guide. Never install the macOS-only stable package as a
-  Windows fallback.
-  The Windows target is **Windows 11 23H2+ x64, PowerShell, native Python 3.10+
-  x64**; macOS remains a target. Check OS build/architecture, Python, Git, and
-  `codex plugin --help`. WSL and a Windows Server CI pass do not establish
-  Windows 11 acceptance. Linux is not a release target.
+- This **0.4.0** guide targets macOS and Windows 11 **23H2+ x64**,
+  PowerShell and native Python **3.10+ x64**. Check OS build/architecture,
+  Python, Git and `codex plugin --help`. WSL or a Windows Server CI pass does
+  not establish Windows 11 acceptance. Linux is not a release target.
+  The older `v0.3.0` guide is macOS-only; never use it as a Windows fallback.
 - For native setup consult the [official Codex Windows guide](https://learn.chatgpt.com/docs/windows/windows-app)
   and [official Antigravity installation guide](https://antigravity.google/docs/cli/install).
   Inspect local command availability first. Do not change execution policy,
   switch to WSL, request administrator rights, or enable Full Access automatically.
-  **Windows release acceptance is still pending**. The 23H2 lab has offline
-  and Codex-controlled read/resume evidence, but project writes failed, real
-  timeout did not trigger, and first-time official login is unproven. See the
+  The 23H2 lab has native offline and Codex-controlled read/resume evidence,
+  plus real agy file creation/editing and response-time cancellation/deadline
+  cleanup. Check exact-commit release validation; first-time official Windows
+  login remains unproven. See the
   bundled [platform reference](plugins/gemini-subagent/references/platforms.md).
   Named agy accounts require the pinned native contract; Windows shared reads fail closed.
 - Inspect available official `agy` and optional `gemini` executables and the user's
@@ -52,7 +49,7 @@ The public marketplace is `gemini-subagent-public`; the plugin is
 `gemini-subagent`:
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.2 --json
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0 --json
 codex plugin add gemini-subagent@gemini-subagent-public --json
 codex plugin list --marketplace gemini-subagent-public --json
 ```
@@ -62,7 +59,7 @@ To limit the Git marketplace checkout, append `--sparse .agents/plugins
 options; do not edit the installed cache or introduce an install hook to delete
 files. Git still retains some root files and metadata.
 
-**Lean packaging in alpha.2:** tests and development tooling stay outside the
+**Lean packaging:** tests and development tooling stay outside the
 installable plugin. The release includes a `*-plugin.zip` containing only a local marketplace, install guidance,
 and the universal plugin. Verify it against `SHA256SUMS` and
 `plugin-manifest.json`, extract it into a retained directory, then use
@@ -71,7 +68,7 @@ same `plugin add` command. The existing published `v0.4.0-alpha.1` package
 has not been replaced. See [packaging boundaries](docs/RELEASING.md#install-payload).
 
 Read the command results. Verify the plugin is installed and enabled at the
-expected prerelease version. These commands require the tag to be published;
+expected release version. These commands require the tag to be published;
 if it is unavailable, report that fact rather than silently installing another
 version. Capture `installedPath` from the install result and locate:
 
@@ -209,8 +206,8 @@ and the runner are present, which project is authorized, and which readiness
 checks passed. Distinguish "plugin installed", "provider verified", and "task
 completed". If login, CLI access, or permissions remain unavailable, say so.
 Do not copy account metadata or full private logs into this repository or issues.
-Keep Windows **not release-accepted** while project-write and real deadline
-acceptance remain incomplete. Report named agy profile evidence separately;
+Do not infer local acceptance from installation alone. Verify the requested
+operation and consult the exact release evidence. Report named agy profile evidence separately;
 shared reads stay blocked by their [native gate](docs/VALIDATION.md#native-windows-live-gate).
 The standalone `tools/validate_windows.ps1` can check a source checkout without
 Codex, provider access, or live `doctor`; an offline pass is not provider proof.

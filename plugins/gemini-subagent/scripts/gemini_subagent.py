@@ -86,7 +86,7 @@ from platform_process import (
 )
 
 
-VERSION = "0.4.0-alpha.2"
+VERSION = "0.4.0"
 SCRIPT_PATH = Path(__file__).resolve()
 TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 ACTIVE_STATES = {"queued", "running", "cancelling", "recovery_required"}
@@ -2473,7 +2473,7 @@ def read_prompt(args: argparse.Namespace) -> tuple[str, str | None]:
     return value, None
 
 
-def managed_prompt(task: str, mode: str, cwd: Path) -> str:
+def managed_prompt(task: str, mode: str, cwd: Path, *, provider: str | None = None) -> str:
     if mode == "read":
         permissions = (
             "READ-INTENT MODE: the provider is launched with its public plan and sandbox controls. "
@@ -2485,6 +2485,14 @@ def managed_prompt(task: str, mode: str, cwd: Path) -> str:
             "WRITE MODE: you may edit files only inside the stated working directory when needed "
             "for the task. Do not commit, push, publish, alter authentication, or delete unrelated data."
         )
+        if IS_WINDOWS and provider == "agy":
+            permissions += (
+                " Ordinary project files are not Antigravity artifacts. When creating a project "
+                "file with write_to_file, explicitly set IsArtifact=false if the installed tool "
+                "schema exposes that parameter. Do not invent unsupported parameters or redirect "
+                "the requested file into the provider's artifact directory. Read back the actual "
+                "target to verify a write; a completed provider turn alone is not proof of success."
+            )
     return f"""You are a managed Gemini Subagent worker called by Codex.
 
 Working directory: {cwd}
@@ -2651,7 +2659,7 @@ def reserve_job(args: argparse.Namespace) -> dict[str, Any]:
     directory = job_dir(job_id)
     private_mkdir(directory)
     prompt_path = directory / "prompt.txt"
-    atomic_write_text(prompt_path, managed_prompt(task, mode, cwd))
+    atomic_write_text(prompt_path, managed_prompt(task, mode, cwd, provider=provider))
 
     job: dict[str, Any] = {
         "version": 2,
@@ -2944,8 +2952,7 @@ def build_provider_command(job: dict[str, Any], account: dict[str, Any]) -> tupl
     if job["provider"] == "agy":
         command = [binary]
         if IS_WINDOWS:
-            # Keep agy's workspace aligned with the directory already admitted
-            # by the runner. A process cwd alone is not a workspace grant.
+            # Explicitly register only the workspace already admitted by the runner.
             command += ["--add-dir", job["cwd"]]
         if job.get("conversation_id"):
             command += ["--conversation", job["conversation_id"]]

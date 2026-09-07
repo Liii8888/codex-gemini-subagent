@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0 — 2026-09-07
+
+- Prepare the cross-platform release for macOS and ordinary-user Windows 11
+  23H2+ x64, retaining one lean plugin and five shared skills.
+- Register the admitted Windows agy workspace explicitly. For project creation,
+  guide the declared file tool to use ordinary-file parameters (`IsArtifact=false`
+  when supported), and require verification of the actual target. No permission
+  broadening, login operation or macOS prompt change is introduced.
+- Carry forward alpha.2 process-ownership recovery fixes and agy-only named
+  account storage. Windows profiles remain pinned to their native provider
+  contract; Windows shared reads and desktop App integration remain unavailable.
+- Record real native file creation/editing, same-session continuation, response-time
+  cancellation and deadline cleanup separately from mock tests. Bind final
+  validation, installed contents and archives to the release commit.
+- First-time official Windows login and 24H2+ coverage remain untested. Existing
+  credential use is test-only and is not a public migration workflow.
+
+
 ## 0.4.0-alpha.2 — 2026-09-07 (prerelease)
 
 - Fix cancellation and recovery races while a worker or provider is exiting.

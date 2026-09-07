@@ -7,32 +7,33 @@ binary, daemon, or desktop application is bundled.
 
 ## Support and evidence
 
-`0.4.0-alpha.2` is experimental on Windows. The stable channel remains `0.3.0`
-for macOS. The Windows stable target is Windows 11 **23H2+ x64**, PowerShell,
-and native Python **3.10+ x64**. Linux and Windows ARM64 are not release targets.
+`0.4.0` targets macOS and Windows 11 **23H2+ x64**, PowerShell and native
+Python **3.10+ x64**. Linux and Windows ARM64 are not release targets.
 
-The 2026-09-06 native lab established **23H2 compatibility evidence only**:
-ordinary desktop token, native ACLs and locks, mock lifecycle/crash/deadline
-cleanup, SSH disconnect survival, and refusal to control another Windows
-session. A real Codex CLI 0.153.4 session using `gpt-5.6-luna` discovered all
-five skills and controlled agy 1.1.27. Reading and native continuation worked;
-cancel was observed during provider/model initialization.
+The ordinary-user 23H2 lab covers native ACLs and locks, lifecycle/crash cleanup,
+SSH disconnect survival and foreign-session refusal. Earlier Codex CLI 0.153.4 /
+`gpt-5.6-luna` evidence established five-skill discovery and managed reads/resume.
+A subsequent bounded agy 1.1.27 batch observed ordinary project file creation,
+existing-file modification, native continuation, cancellation during an agent
+response, and a real deadline with owned processes gone and a sentinel alive.
 
-Three live limitations remain:
+For Windows project writes, use the file tool's ordinary-file contract. If
+`write_to_file` declares `IsArtifact`, set it to `false` for a project file;
+never invent an unsupported field. The runner includes this instruction and
+explicitly adds only the already admitted workspace. Inspect the target file:
+agy can soft-fail a tool while the surrounding turn returns `SUCCESS`.
+An artifact-path rejection is not an instruction to grant wider permissions,
+redirect output into an artifact directory, or claim the requested write happened.
 
-- **Project writes did not pass.** agy's file tool rejected the project path
-  as outside its artifact directory. The expected file was absent. Do not
-  promise working project writes or expand permissions to hide this result.
-- **Real deadline expiry was not observed.** The provider returned a plan
-  before the requested long action ran. Mock deadline coverage is separate.
-- **First-time official Windows login is unproven.** The lab used existing
-  account credentials after a failed official agy login. That is not a public
-  onboarding procedure. Users complete official Codex and provider login;
-  do not extract or migrate tokens to work around a login failure.
+First-time official Windows login remains **unverified**. The lab reused existing
+authorized test credentials; that is not a public onboarding procedure or a
+credential migration recommendation. New users complete official Codex/provider
+login. Do not extract tokens to work around failed authentication.
 
-These observations belong to snapshot `88e4ca0b3a18978a`; they do not certify a
-different source snapshot, provider binary, OS build, account, or permission
-mode. Current release assets separately identify their tested commit and hashes.
+Every observation belongs to its recorded source, provider binary, OS/build,
+account and permission context. The release's validation assets identify exact
+commits, hashes, executed checks, failures and skips; no version string alone
+certifies another build or machine.
 
 ## Resolve and invoke the installed runner
 
@@ -147,4 +148,4 @@ Fresh official login remains unverified and requires a separate requested
 onboarding test. Named agy profiles, shared reads, optional Gemini CLI Windows
 live support and desktop App integration each have separate evidence scopes;
 one does not enable or certify the others. Details and historical
-results are in the [repository validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0-alpha.2/docs/VALIDATION.md).
+results are in the [repository validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0/docs/VALIDATION.md).

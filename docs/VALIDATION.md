@@ -1,12 +1,47 @@
 # Release validation
 
-Target version: **0.4.0-alpha.2 (Windows preview)**.
-**Windows stable release acceptance: NOT ACCEPTED.** The stable target is
-Windows 11 23H2+ x64, PowerShell, and native Python 3.10+ x64. A native 23H2
-client is sufficient for the single-account release gate. Testing 24H2+ is
-additional coverage, not a release prerequisite. The target was revised on
-2026-09-07; this changes the required environment, not the result of any test.
-Existing preview evidence does not establish full provider parity.
+Target version: **0.4.0**. Exact-build release acceptance is recorded in the
+release's `validation.json` and validation summary, bound to its source commit
+and package manifests. This document defines the scope and preserves historical
+observations; a version string or available primitive is not a local test pass.
+
+The Windows target is **Windows 11 23H2+ x64**, PowerShell and native Python
+3.10+ x64, under an ordinary desktop user. The tested client is 23H2 build
+22631.4751. 24H2+ is additional coverage, not a release prerequisite. First-time
+Windows login is unverified and was explicitly waived for this release's
+bounded existing-credential tests. No account parity, shared-read or desktop
+App acceptance is implied.
+
+## September 7 write and deadline diagnosis
+
+Diagnostic source `39cfe5f0c9f6fa4ec7cf1be574e053b16f9be982`, content digest
+`74461aeb1b90f019f96d88911703569074fc32cbf95efd6a78ca4bf88617eef2`, ran
+341 offline tests: macOS 310 passed / 31 platform skips; native Windows 201
+passed / 140 platform skips, zero failures/errors. The isolated Windows Codex
+install matched all 25 runtime files and discovered five enabled skills without
+creating authentication files or making model calls.
+
+An explicit `--add-dir` alone did not fix ordinary file creation. The first
+real write returned a tool-level artifact-path rejection while the overall turn
+reported success; the file was absent. Existing-file replacement then succeeded
+in the same native conversation. A separate creation request that explicitly
+required the declared ordinary-file parameters also succeeded, with exact
+contents independently checked. The release adds that Windows-only guidance
+to its managed write prompt and verifies a plain creation request separately.
+It never adds command permissions or an unsafe-bypass flag.
+
+Real cancellation occurred after an agent response was observed. A separate
+25-second deadline actually expired; final collection and cleanup completed in
+about 35 seconds. Both observations found no owned group members or lease and
+kept an unrelated sentinel alive. The observation process ran outside the
+plugin's Job. An initial coordinator defect killed a worker before any provider
+attempt; a zero-model comparison reproduced that harness mistake. That failed
+submission remains recorded and is not counted as a successful task or model call.
+
+These diagnostic observations keep their original source identity. The final
+candidate's default write prompt, full OS regressions, installed payload and CI
+are identified in the separate exact-build release assets; do not relabel the
+diagnostic snapshot as the release commit.
 
 ## Alpha.2 lifecycle corrections
 
@@ -24,15 +59,15 @@ cancellation and the full OS suites provide separate runtime evidence. Exact
 candidate commit, counts, artifacts and native results belong in the release's
 validation asset; historical runs below retain their original snapshot IDs.
 Alpha.2 also ships named Windows agy profiles and lean universal packaging.
-None of these changes claims to fix the provider's project-write restriction or
-to replace the still-missing real deadline evidence.
+The alpha.2 changes did not establish real write or deadline acceptance. The
+subsequent diagnosis above and exact-build release evidence remain separate.
 
 ## Current implementation and evidence boundary
 
 | Surface | Implemented and observed | Remaining boundary |
 | --- | --- | --- |
-| Native task lifecycle | Windows Job Objects, native locks/private ACLs, SID/Session/logon-LUID ownership; required 23H2 offline checks passed | Bind final-source checks to the tested Windows 11 client; real provider deadline still unproven |
-| Official single-account agy | 1.1.27 models/structured usage, reads, native continuation, and cancel during initialization observed | Project writes failed; first-time official login and real timeout unproven |
+| Native task lifecycle | Windows Job Objects, native locks/private ACLs, SID/Session/logon-LUID ownership; required 23H2 offline checks passed | Consult exact-source Windows 11 client and real deadline evidence |
+| Official single-account agy | 1.1.27 models/structured usage, reads, native continuation, real file creation/editing, response-time cancel and deadline observed | First-time official Windows login unproven; exact source and permissions remain material |
 | Codex CLI | 0.153.4 / gpt-5.6-luna discovered five installed skills and invoked start/status/wait/result | Exact one-time host approvals were required; not approval-free sandbox execution or desktop App acceptance |
 | Credential profiles | Development agy-only adapter with pinned 1.1.27 binary and observed native record metadata; Agent-invoked saving and switching | Separate native synthetic and real saved-account evidence required; no claim of two distinct live accounts or actual token rotation |
 | Shared reads | Existing gated macOS implementation | Windows probe stays UNAVAILABLE, even when explicitly invoked; no Windows behavioral implementation |
@@ -40,7 +75,7 @@ to replace the still-missing real deadline evidence.
 | CI and distribution | Four OS/Python combinations, committed-source packaging, bundled-reference checks | Consult exact-commit CI and release validation assets, not merely the workflow configuration |
 
 The source review and 205-test result recorded below belong to **0.3.0**. They
-are historical evidence, not a review of this preview. No real credentials,
+are historical evidence, not a review of this release. No real credentials,
 account identity, enabling Windows report, or private lab ledger is distributed.
 
 ## Historical native lab — 2026-09-06
@@ -107,7 +142,7 @@ python3 -W error::ResourceWarning -m unittest discover -s tests -v
 On native PowerShell use `python` (or the exact native `python.exe`) for both
 commands. The package checker reads text explicitly as UTF-8, checks manifest
 and runtime version equality, and checks executable bits only on POSIX. Keep
-that version check intact while integrating the 0.4.0-alpha.1 runtime.
+that version check intact when preparing the 0.4.0 runtime.
 
 The standard discovery includes the Windows-specific tests; it does not need a
 separate suite command. Specifically Darwin/Keychain-dependent tests skip on
@@ -245,9 +280,9 @@ restriction and use already-authorized offline commands; do not weaken policy.
 
 ## Native Windows live gate
 
-The **0.4 single-account CLI stable gate remains pending**. The existing 23H2
-client can satisfy the OS requirement; remaining authentication and real-task checks
-must still pass. No 24H2+ machine or operating-system upgrade is required.
+The **0.4 single-account CLI stable gate** requires the evidence below, recorded
+against the release commit. The existing 23H2 client satisfies the OS requirement;
+a draft or a successful install alone does not imply that every gate passed. No 24H2+ machine or operating-system upgrade is required.
 Use the official [Codex Windows guide](https://learn.chatgpt.com/docs/windows/windows-app)
 and [agy installation guide](https://antigravity.google/docs/cli/install).
 
@@ -325,8 +360,8 @@ The [historical skill-vetter report](SECURITY_REVIEW.md) binds 61 files at
 [SHA256 inventory](skill-vetter-files.json) supports exact comparisons. The
 reviewer passed the then-current 205 tests and checked three repaired MEDIUM
 findings. Its strict installation rubric remains HIGH / DO NOT INSTALL; it is
-an AI source review, not a third-party certification or a review of 0.4.0-alpha.1.
+an AI source review, not a third-party certification or a review of 0.4.0.
 
 No historical result proves current provider access, another OS/build/account,
-or this prerelease. Keep private prompts, credentials, job transcripts, account
+or this release. Keep private prompts, credentials, job transcripts, account
 identities, and live behavioral reports outside the distribution.

@@ -5,31 +5,29 @@
 让 Codex 像调用 subagent 一样，把任务交给 **Antigravity CLI（`agy`）** 或可选的 **Gemini CLI**。
 Codex 负责启动、等待、获取结果、续接会话、取消任务和验证改动。
 
-**macOS 稳定版为 `v0.3.0`；Windows 预发布版为 `v0.4.0-alpha.2`。**
-Windows 正式目标为 Windows 11 23H2+ x64、PowerShell、原生 Python 3.10+ x64。
-现有 23H2 客户端可用于正式版验收；24H2+ 测试属于后续覆盖，不再是发布前提。
+**0.4.0 面向 macOS 和原生 Windows 11 23H2+ x64**，要求 Python 3.10+；
+Windows 使用 PowerShell。实际测试机为 23H2，24H2+ 属于后续覆盖，不是发布前提。
 
-23H2 普通用户测试已经取得原生离线通过、Codex 控制 agy 读取和同会话续接的证据。
-**Windows 尚未通过发布验收：普通项目写入失败、真实超时未触发。**
-官方首次登录仍未独立验证；本次发布允许复用已明确授权、仅用于测试的既有凭据完成认证检查。
-Codex 集成保留了正常的精确命令审批，不代表全部操作均在沙箱内免审批运行。
+普通用户测试已取得 agy 真实新建文件、修改文件、原生续接、模型响应期间取消，
+以及真实超时和进程收尾的证据。具体发行包是否通过验收，以绑定准确提交的发行附件为准。
+官方首次 Windows 登录仍未独立验证；测试复用了已授权的既有凭据。
+Codex 集成保留正常的精确命令审批。
 
-Alpha.2 增加了由 Agent 保存、选择 **agy** 账号的功能：Windows 使用本机凭据管理器，
-限于已核验的 agy 1.1.27 x64 和普通桌面用户。
-它不管理 Codex 的登录凭据；Windows 共享读仍关闭。插件使用你自己安装的官方 CLI 和账号，
-不附带 Google 程序、凭据或 API 代理。详见包内的
-[平台说明](plugins/gemini-subagent/references/platforms.md)和[版本绑定验证记录](docs/VALIDATION.md)。
+Agent 可以保存和选择 **agy** 账号：macOS 使用 Keychain，Windows 使用凭据管理器。
+Windows 账号适配限定于已核验的 agy 1.1.27 x64 和普通桌面用户；不管理 Codex 凭据，
+Windows 共享读仍关闭。插件不捆绑 provider 程序、凭据、服务或 API 代理。
+详见[平台说明](plugins/gemini-subagent/references/platforms.md)和[版本绑定验证记录](docs/VALIDATION.md)。
 
-Alpha.2 采用精简通用包：测试和开发工具留在插件目录外，各系统适配源码继续共用，
-不捆绑 provider 二进制或额外平台依赖。同时提供完整源码包和精简安装包；
-已公开的 alpha.1 包保持不变。详见[打包说明](docs/RELEASING.md#install-payload)。
+继续使用精简通用包：一套五个 Skill 和运行代码，系统差异集中处理；测试、开发工具不随
+插件安装，不增加其他平台的二进制或依赖。提供完整源码包和精简安装包，旧标签及旧包保持不变。
+详见[打包说明](docs/RELEASING.md#install-payload)。
 
 ## 让你的 Agent 安装和配置
 
 把下面这句话交给 Codex：
 
 > 帮我安装并配置 https://github.com/Liii8888/codex-gemini-subagent ，用于当前项目。
-> macOS 选稳定版 v0.3.0，Windows 选实验性 v0.4.0-alpha.2。
+> macOS 或 Windows 使用 v0.4.0。
 > 先读所选版本的 INSTALL.md 并检查权限，再安装插件，按 setup Skill 完成配置。
 > 最后告诉我哪个 provider 已经可用，以及以后怎么让你调用 Gemini。
 
@@ -50,24 +48,19 @@ Alpha.2 采用精简通用包：测试和开发工具留在插件目录外，各
 
 ## 安装
 
-需要 macOS 或上述实验性 Windows 环境、Python 3.10+、Git、支持插件命令的 Codex CLI，
+需要 macOS 或上述原生 Windows 环境、Python 3.10+、Git、支持插件命令的 Codex CLI，
 以及官方 provider CLI。新配置优先选择 `agy`；保留用户指定或已有可用的 `gemini`。
 首次登录由你在官方交互流程里完成。
 会员订阅不等于每个 CLI、模型或额度接口都必然可用。
 
-阅读源码后选择一个渠道。macOS 稳定版：
+阅读源码后安装已发布版本：
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.3.0
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0
 codex plugin add gemini-subagent@gemini-subagent-public
 ```
 
-Windows 预发布版（或明确选择体验新版的 macOS 用户）：
-
-```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.2
-codex plugin add gemini-subagent@gemini-subagent-public
-```
+macOS 可选择旧版 `v0.3.0` 回退；Windows 回退到先前可用的 Windows 版本，不能使用 `v0.3.0`。
 
 安装后新建一个 Codex 任务或 CLI 会话，再使用：
 
@@ -81,7 +74,7 @@ codex plugin add gemini-subagent@gemini-subagent-public
 
 公开版仍使用 `gemini-subagent` 名称；如果已有旧个人版，选择一个来源使用。
 安装发现和新会话加载机制见 [OpenAI 官方插件说明](https://learn.chatgpt.com/docs/plugins)。
-版本固定命令要求对应预发布标签已经存在；开发中的 checkout 不代表标签已经发布。
+版本固定命令要求对应发行标签已经存在；开发中的 checkout 不代表标签已经发布。
 Windows 前置检查参考 [Codex 官方 Windows 文档](https://learn.chatgpt.com/docs/windows/windows-app)
 和 [Antigravity 官方安装文档](https://antigravity.google/docs/cli/install)。
 不要自动改执行策略、申请管理员或 Full Access，也不要默认通过 WSL 运行。
@@ -89,7 +82,7 @@ Windows 前置检查参考 [Codex 官方 Windows 文档](https://learn.chatgpt.c
 ## 直接运行
 
 ```bash
-git clone --branch v0.3.0 https://github.com/Liii8888/codex-gemini-subagent.git
+git clone --branch v0.4.0 https://github.com/Liii8888/codex-gemini-subagent.git
 cd codex-gemini-subagent
 SUBAGENT="$PWD/plugins/gemini-subagent/scripts/gemini_subagent.py"
 
@@ -100,7 +93,8 @@ python3 "$SUBAGENT" start --provider agy --mode read --cwd "$PWD" \
   --prompt '检查项目结构，返回主要问题。' --wait
 ```
 
-`--mode write` 用于需要改文件的任务；本次 Windows 实测的普通项目写入尚未通过。续接任务使用
+`--mode write` 用于需要改文件的任务。Windows 运行器会明确普通项目文件与 artifact 的区别，
+并登记已授权工作目录；完成后仍须核对实际文件内容。续接任务使用
 `start --resume <job-id> --prompt-file <文件> --wait`。
 
 Windows 使用实际安装结果中的 `installedPath`，并显式调用已经核验的原生 Python
@@ -115,8 +109,8 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 
 `doctor` 会初始化私有状态；Windows 的 `capabilities` 包含 `task_lifecycle`、
 `credential_storage`、`credential_profiles`、`shared_reads`、`desktop_integration`。
-生命周期虽显示 available，但标记为 `pending-native-acceptance`；凭据存储只有合成测试，
-真实 profile 和共享读不可用，桌面集成待验收。原生进程、锁与 ACL 证据本身不等于完整的单账号发布验收。
+这些字段描述本机实现能力，不自动证明该机器已验收；发行证据在版本附件中。
+Windows profile 需要匹配固定 provider 契约及普通用户上下文；共享读不可用，桌面集成待验收。
 新 macOS 用户的运行数据默认放在 `~/Library/Application Support/Gemini-Subagent/runtime`，
 Windows 则使用真实操作系统用户的 `%LOCALAPPDATA%\Gemini-Subagent\runtime`。
 首次初始化只授权当前项目；同系统的兼容升级保留既有状态，不跨系统迁移凭据或原生会话。
@@ -124,7 +118,7 @@ Windows 则使用真实操作系统用户的 `%LOCALAPPDATA%\Gemini-Subagent\run
 
 ## 适用范围
 
-- Windows 为实验性支持；23H2 已满足验收系统要求，单账号真实任务验收仍待完成。Linux 不属于发布目标。
+- Windows 支持范围为普通用户、单账号 agy CLI。首次登录、共享读、桌面 App 和可选 Gemini CLI 的 Windows 真实使用分别验收；Linux 不属于发布目标。
 - `read` 使用 provider 的 plan/approval 与 sandbox，属于只读意图，不能当作强制逐工具禁写。
 - 操作系统凭据切换和同账号并发属于非官方兼容能力，provider 更新后可能失效。
 - 任务及 provider 读取的相关项目内容会通过你的账号发送给 Google。
