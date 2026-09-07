@@ -7,7 +7,7 @@ durable workers. Codex remains the controller: it starts jobs, collects results,
 resumes conversations, cancels work, and verifies changes.
 
 This community plugin runs official provider CLIs under your own account.
-**Stable macOS: `v0.3.0`. Windows preview: `v0.4.0-alpha.1`.** Windows 11
+**Stable macOS: `v0.3.0`. Windows preview: `v0.4.0-alpha.2`.** Windows 11
 23H2+ x64, PowerShell, and native Python 3.10+ x64 are the stable target.
 The existing 23H2 client may satisfy release acceptance; 24H2+ testing is
 additional coverage, not a prerequisite.
@@ -19,18 +19,17 @@ First-time official Windows login is unproven; this release's authentication
 checks may reuse explicitly authorized test credentials. The Codex test retained normal
 exact-command approvals; it was not approval-free sandbox execution.
 
-The development branch adds Agent-invoked saving and selection of named **agy**
+Alpha.2 adds Agent-invoked saving and selection of named **agy**
 accounts using Windows Credential Manager, bounded to verified agy 1.1.27 x64
-and the ordinary desktop user. This change is not in the immutable alpha.1
-release. It does not manage Codex credentials; Windows shared reads stay disabled. No Google
+and the ordinary desktop user. It does not manage Codex credentials; Windows shared reads stay disabled. No Google
 binaries, credentials, hosted service, or API proxy are included. See the
 [bundled platform guide](plugins/gemini-subagent/references/platforms.md) and
 [version-bound evidence](docs/VALIDATION.md).
 
-The development install payload is a lean universal plugin: tests and development
+Alpha.2 ships a lean universal plugin: tests and development
 tools stay outside it. OS adapter sources remain shared, with no bundled provider
 binaries or extra platform dependencies. A separate runtime ZIP accompanies full
-source archives when building a new release; existing alpha.1 assets are unchanged.
+source archives; existing alpha.1 assets are unchanged.
 See [packaging](docs/RELEASING.md#install-payload).
 
 ## Let your agent install and set it up
@@ -39,7 +38,7 @@ Give your Codex agent this request:
 
 > Install and configure https://github.com/Liii8888/codex-gemini-subagent for
 > this project. Select stable v0.3.0 on macOS, or the experimental
-> v0.4.0-alpha.1 on Windows. Read the selected version's INSTALL.md, inspect the permissions, install the
+> v0.4.0-alpha.2 on Windows. Read the selected version's INSTALL.md, inspect the permissions, install the
 > plugin, and follow its setup skill. Then explain which provider is ready
 > and how I can ask you to delegate work to Gemini.
 
@@ -82,7 +81,7 @@ codex plugin add gemini-subagent@gemini-subagent-public
 Experimental Windows (or an explicitly selected macOS preview):
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.1
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.2
 codex plugin add gemini-subagent@gemini-subagent-public
 ```
 

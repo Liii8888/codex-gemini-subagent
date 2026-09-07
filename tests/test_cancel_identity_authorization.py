@@ -330,6 +330,56 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
         self.assertFalse(gemini_subagent.provider_lease_path(job["job_id"]).exists())
         self.assertEqual(gemini_subagent.load_job(job["job_id"])["state"], "cancelled")
 
+    def test_cancel_reconciles_worker_exit_after_initial_status_probe(self) -> None:
+        job, _marker, _nonce = self.publish_worker(self.reserve(), actual_start_sec=111)
+        stopped = {**job, "state": "interrupted"}
+        with (mock.patch.object(gemini_subagent, "reconcile_job", side_effect=[job, stopped]),
+              mock.patch.object(gemini_subagent, "process_alive", return_value=False),
+              mock.patch.object(gemini_subagent, "signal_managed_group") as signal_group,
+              contextlib.redirect_stdout(io.StringIO())):
+            self.assertEqual(gemini_subagent.cmd_cancel(
+                argparse.Namespace(job=job["job_id"], json=True)), 0)
+            signal_group.assert_not_called()
+
+    def test_retiring_provider_must_be_observed_empty_before_lease_is_stopped(self) -> None:
+        job, _marker, nonce = self.publish_worker(self.reserve(), actual_start_sec=111)
+        lease = self.publish_provider_lease(job, nonce, actual_start_sec=333)
+        # Another controller killed the guardian. Descendant teardown and group
+        # disappearance occur after our first two observations, not atomically.
+        with (mock.patch.object(gemini_subagent, "process_group_alive", side_effect=[True, True, True, False]) as groups,
+              mock.patch.object(gemini_subagent, "process_alive", return_value=False),
+              mock.patch.object(gemini_subagent, "signal_managed_group") as signal_group):
+            self.assertEqual(gemini_subagent._provider_lease_identity(lease), "stopped")
+            self.assertEqual(groups.call_count, 4)
+            signal_group.assert_not_called()
+
+    def test_persistent_missing_provider_identity_keeps_the_lease_unknown(self) -> None:
+        job, _marker, nonce = self.publish_worker(self.reserve(), actual_start_sec=111)
+        lease = self.publish_provider_lease(job, nonce, actual_start_sec=333)
+        with (mock.patch.object(gemini_subagent, "process_group_alive", return_value=True),
+              mock.patch.object(gemini_subagent, "process_alive", return_value=False),
+              mock.patch.object(gemini_subagent.time, "monotonic", side_effect=[0, 2]),
+              mock.patch.object(gemini_subagent, "signal_managed_group") as signal_group):
+            self.assertEqual(gemini_subagent._provider_lease_identity(lease), "unknown")
+            self.assertTrue(gemini_subagent.provider_lease_path(job["job_id"]).exists())
+            signal_group.assert_not_called()
+
+    def test_posix_signal_revalidates_birth_after_earlier_admission(self) -> None:
+        with (mock.patch.object(gemini_subagent, "IS_WINDOWS", False),
+              mock.patch.object(gemini_subagent, "process_identity", return_value=self.identity(self.PROVIDER_PID, start_sec=222)),
+              mock.patch.object(gemini_subagent.os, "killpg", create=True) as kill):
+            with self.assertRaisesRegex(gemini_subagent.BridgeError, "birth identity"):
+                gemini_subagent.signal_managed_group(self.PROVIDER_PID, signal.SIGTERM, expected_start="111:7")
+            kill.assert_not_called()
+
+    def test_posix_retiring_leader_requires_group_absence_before_signal_returns(self) -> None:
+        with (mock.patch.object(gemini_subagent, "IS_WINDOWS", False),
+              mock.patch.object(gemini_subagent, "process_identity", return_value=None),
+              mock.patch.object(gemini_subagent, "process_group_alive", side_effect=[True, False]),
+              mock.patch.object(gemini_subagent.os, "killpg", create=True) as kill):
+            gemini_subagent.signal_managed_group(self.PROVIDER_PID, signal.SIGTERM, expected_start="111:7")
+            kill.assert_not_called()
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

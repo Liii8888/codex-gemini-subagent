@@ -5,7 +5,7 @@
 让 Codex 像调用 subagent 一样，把任务交给 **Antigravity CLI（`agy`）** 或可选的 **Gemini CLI**。
 Codex 负责启动、等待、获取结果、续接会话、取消任务和验证改动。
 
-**macOS 稳定版为 `v0.3.0`；Windows 预发布版为 `v0.4.0-alpha.1`。**
+**macOS 稳定版为 `v0.3.0`；Windows 预发布版为 `v0.4.0-alpha.2`。**
 Windows 正式目标为 Windows 11 23H2+ x64、PowerShell、原生 Python 3.10+ x64。
 现有 23H2 客户端可用于正式版验收；24H2+ 测试属于后续覆盖，不再是发布前提。
 
@@ -14,14 +14,14 @@ Windows 正式目标为 Windows 11 23H2+ x64、PowerShell、原生 Python 3.10+ 
 官方首次登录仍未独立验证；本次发布允许复用已明确授权、仅用于测试的既有凭据完成认证检查。
 Codex 集成保留了正常的精确命令审批，不代表全部操作均在沙箱内免审批运行。
 
-开发分支增加了由 Agent 保存、选择 **agy** 账号的功能：Windows 使用本机凭据管理器，
-限于已核验的 agy 1.1.27 x64 和普通桌面用户。这项改动尚未包含在已发布的 alpha.1 中。
+Alpha.2 增加了由 Agent 保存、选择 **agy** 账号的功能：Windows 使用本机凭据管理器，
+限于已核验的 agy 1.1.27 x64 和普通桌面用户。
 它不管理 Codex 的登录凭据；Windows 共享读仍关闭。插件使用你自己安装的官方 CLI 和账号，
 不附带 Google 程序、凭据或 API 代理。详见包内的
 [平台说明](plugins/gemini-subagent/references/platforms.md)和[版本绑定验证记录](docs/VALIDATION.md)。
 
-开发分支采用精简通用包：测试和开发工具留在插件目录外，各系统适配源码继续共用，
-不捆绑 provider 二进制或额外平台依赖。构建新版本时同时生成完整源码包和精简安装包；
+Alpha.2 采用精简通用包：测试和开发工具留在插件目录外，各系统适配源码继续共用，
+不捆绑 provider 二进制或额外平台依赖。同时提供完整源码包和精简安装包；
 已公开的 alpha.1 包保持不变。详见[打包说明](docs/RELEASING.md#install-payload)。
 
 ## 让你的 Agent 安装和配置
@@ -29,7 +29,7 @@ Codex 集成保留了正常的精确命令审批，不代表全部操作均在�
 把下面这句话交给 Codex：
 
 > 帮我安装并配置 https://github.com/Liii8888/codex-gemini-subagent ，用于当前项目。
-> macOS 选稳定版 v0.3.0，Windows 选实验性 v0.4.0-alpha.1。
+> macOS 选稳定版 v0.3.0，Windows 选实验性 v0.4.0-alpha.2。
 > 先读所选版本的 INSTALL.md 并检查权限，再安装插件，按 setup Skill 完成配置。
 > 最后告诉我哪个 provider 已经可用，以及以后怎么让你调用 Gemini。
 
@@ -43,7 +43,7 @@ Codex 集成保留了正常的精确命令审批，不代表全部操作均在�
 - Gemini session 和 Antigravity conversation 原生续接，绑定原账号和项目。
 - 通过官方 `agy /usage` 查询额度及重置时间。
 - 可选的操作系统凭据存储、多账号管理、冷却和受限的失败换号；macOS 使用 Keychain，
-  开发中的 Windows 账号功能限定于已核验的原生凭据契约。
+  Windows 账号功能限定于已核验的原生凭据契约。
   已登录时由 Agent 调用 `account import-current` 保存，不要求后台自动捕获登录。
 - 默认串行；同账号 Antigravity 只读双并发需要真实探针通过并由用户显式开启。
 - 纯 Python 标准库运行器，无常驻 daemon、无前端。
@@ -65,7 +65,7 @@ codex plugin add gemini-subagent@gemini-subagent-public
 Windows 预发布版（或明确选择体验新版的 macOS 用户）：
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.1
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.2
 codex plugin add gemini-subagent@gemini-subagent-public
 ```
 

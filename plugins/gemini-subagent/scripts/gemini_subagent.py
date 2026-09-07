@@ -86,7 +86,7 @@ from platform_process import (
 )
 
 
-VERSION = "0.4.0-alpha.1"
+VERSION = "0.4.0-alpha.2"
 SCRIPT_PATH = Path(__file__).resolve()
 TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 ACTIVE_STATES = {"queued", "running", "cancelling", "recovery_required"}
@@ -1673,6 +1673,17 @@ def _provider_lease_identity(record: dict[str, Any]) -> str:
         record.get("windows_context"), platform_process.current_context()
     ):
         return "unknown"
+    deadline = time.monotonic() + 0.5
+    while True:
+        result = _provider_lease_identity_once(record)
+        if result != "unknown" or time.monotonic() >= deadline:
+            return result
+        # Cancellation, worker cleanup and orphan recovery can race. Wait only
+        # for fresh OS evidence; a missing identity never authorizes a signal.
+        time.sleep(0.02)
+
+
+def _provider_lease_identity_once(record: dict[str, Any]) -> str:
     pid = int(record["pid"])
     pgid = int(record["pgid"])
     if not process_group_alive(pgid):
@@ -3752,6 +3763,19 @@ def signal_managed_group(
     if IS_WINDOWS:
         platform_process.terminate_group(pgid, expected_start=expected_start)
         return
+    if expected_start is not None:
+        identity = process_identity(pgid)
+        if identity is None and expected_start:
+            deadline = time.monotonic() + 0.5
+            while process_group_alive(pgid):
+                if time.monotonic() >= deadline:
+                    raise BridgeError("Process group birth identity is unavailable; refusing to signal it.")
+                time.sleep(0.02)
+            return
+        if (not expected_start or _identity_start_token(identity) != expected_start
+                or (identity or {}).get("pgid") != pgid
+                or (identity or {}).get("uid") != current_user_id()):
+            raise BridgeError("Process group birth identity changed; refusing to signal it.")
     try:
         os.killpg(pgid, sig)
     except ProcessLookupError:
@@ -4944,23 +4968,32 @@ def cmd_result(args: argparse.Namespace) -> int:
 
 
 def cmd_cancel(args: argparse.Namespace) -> int:
-    job = reconcile_job(load_job(args.job))
-    if job.get("state") in TERMINAL_STATES:
-        if args.json:
-            print_json(job_summary(job))
-        else:
-            print(f"{job['job_id']} is already {job['state']}.")
-        return 0
-    pid = job.get("worker_pid")
-    if not process_alive(pid):
-        raise BridgeError(f"Worker process is not alive: {job['job_id']}")
-    marker_path = Path(job.get("worker_marker_path", ""))
-    marker = read_json(marker_path, {}) if marker_path.is_file() else {}
-    if not _worker_identity_owned(job, marker, require_fresh_heartbeat=True):
-        raise BridgeError(
-            "Refusing to signal a worker without a matching nonce, birth token, "
-            "executable, process group, and live heartbeat."
-        )
+    admission_deadline = time.monotonic() + 2.5
+    while True:
+        job = reconcile_job(load_job(args.job))
+        if job.get("state") in TERMINAL_STATES:
+            if args.json:
+                print_json(job_summary(job))
+            else:
+                print(f"{job['job_id']} is already {job['state']}.")
+            return 0
+        pid = job.get("worker_pid")
+        marker_path = Path(job.get("worker_marker_path", ""))
+        marker = read_json(marker_path, {}) if marker_path.is_file() else {}
+        if process_alive(pid):
+            if _worker_identity_owned(job, marker, require_fresh_heartbeat=True):
+                break
+            if process_alive(pid):
+                raise BridgeError(
+                    "Refusing to signal a worker without a matching nonce, birth token, "
+                    "executable, process group, and live heartbeat."
+                )
+        # A worker may exit just after reconcile_job's live observation, or
+        # during the guarded pre-lease launch window. Reconcile the fresh job
+        # before deciding; never signal its now-stale numeric PID.
+        if time.monotonic() >= admission_deadline or job.get("state") == "recovery_required":
+            raise BridgeError(f"Worker process is not alive; recovery incomplete: {job['job_id']}")
+        time.sleep(0.05)
     pgid = int(pid)
     patch_job(
         job["job_id"],
@@ -5008,6 +5041,10 @@ def cmd_cancel(args: argparse.Namespace) -> int:
             # The leader was already authorized by its birth token.  While an
             # original descendant keeps this PGID alive, the kernel cannot
             # reuse that numeric group for an unrelated process.
+            return
+        if not process_alive(provider_pid):
+            if process_group_alive(provider_pgid):
+                raise BridgeError("Refusing to signal an unleased group without its provider birth identity.")
             return
         if process_alive(provider_pid):
             identity = process_identity(provider_pid)

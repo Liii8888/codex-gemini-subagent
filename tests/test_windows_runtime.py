@@ -159,6 +159,24 @@ class WindowsRuntimeLifecycleTests(unittest.TestCase):
         self.assertEqual(final["state"], "failed")
         self.assertFalse(Path(job["provider_lease_path"]).exists())
 
+    def test_two_cancel_controllers_reconcile_the_same_retiring_job(self):
+        job, lease = self.sleeping_job()
+        members = platform_process.group_members(lease["pid"])
+        command = [sys.executable, str(RUNNER), "cancel", job["job_id"], "--json"]
+        with (subprocess.Popen(command, cwd=self.project, env=self.env,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, encoding="utf-8") as first,
+              subprocess.Popen(command, cwd=self.project, env=self.env,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, encoding="utf-8") as second):
+            for controller in (first, second):
+                out, err = controller.communicate(timeout=30)
+                self.assertEqual(controller.returncode, 0, err + out)
+                self.assertIn(json.loads(out)["state"], runtime.TERMINAL_STATES)
+        self.wait_for(lambda: all(not platform_process.alive(pid) for pid in members))
+        self.assertFalse(platform_process.group_alive(job["worker_pid"]))
+        self.assertFalse(Path(job["provider_lease_path"]).exists())
+
     def test_timeout_and_cancel_leave_unrelated_process_alive(self):
         with subprocess.Popen([sys.executable, "-c", "import time;time.sleep(60)"]) as sentinel:
             try:

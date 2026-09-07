@@ -1,6 +1,6 @@
 {
   "name": "gemini-subagent",
-  "version": "0.4.0-alpha.1",
+  "version": "0.4.0-alpha.2",
   "description": "Managed Antigravity and optional Gemini CLI workers. Native Windows adaptation prerelease; Windows acceptance pending.",
   "author": {
     "name": "Liii8888",

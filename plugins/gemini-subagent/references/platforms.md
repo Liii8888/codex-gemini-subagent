@@ -7,7 +7,7 @@ binary, daemon, or desktop application is bundled.
 
 ## Support and evidence
 
-`0.4.0-alpha.1` is experimental on Windows. The stable channel remains `0.3.0`
+`0.4.0-alpha.2` is experimental on Windows. The stable channel remains `0.3.0`
 for macOS. The Windows stable target is Windows 11 **23H2+ x64**, PowerShell,
 and native Python **3.10+ x64**. Linux and Windows ARM64 are not release targets.
 
@@ -147,4 +147,4 @@ Fresh official login remains unverified and requires a separate requested
 onboarding test. Named agy profiles, shared reads, optional Gemini CLI Windows
 live support and desktop App integration each have separate evidence scopes;
 one does not enable or certify the others. Details and historical
-results are in the [repository validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0-alpha.1/docs/VALIDATION.md).
+results are in the [repository validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0-alpha.2/docs/VALIDATION.md).

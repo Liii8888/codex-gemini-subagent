@@ -1,6 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.4.0-alpha.2 — 2026-09-07 (prerelease)
+
+- Fix cancellation and recovery races while a worker or provider is exiting.
+  Recheck transient unavailable identities with bounded waits; only fresh OS
+  evidence of group absence permits completion. Persistent uncertainty and
+  foreign execution contexts remain fail-closed.
+- Retain the exact Windows Job handle while observing a retiring group, and
+  revalidate the macOS birth token before durable group signals. Detected PID reuse
+  rejects the earlier cancellation authorization.
+- Reconcile again when a worker exits between the initial status query and
+  cancellation admission. Add deterministic interleaving, permission-denial,
+  identity-reuse and native concurrent-cancellation regressions.
+
 
 - Keep one lean universal plugin. Move mock tests and injection helpers to the
   repository-level `tests/` tree and development instructions to

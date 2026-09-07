@@ -32,6 +32,42 @@ class CommandPortabilityTests(unittest.TestCase):
 
 
 class JobIdentityAuthorizationTests(unittest.TestCase):
+    context = {"user_sid": "S-1-5-21-100", "session_id": 7,
+               "logon_id": "0000000000001234"}
+
+    def test_retiring_identity_is_rechecked_before_job_namespace_lookup(self):
+        with (mock.patch.object(processes, "identity", side_effect=[None, {"windows_context": self.context}]),
+              mock.patch.object(processes, "alive", return_value=True),
+              mock.patch.object(processes, "current_context", return_value=self.context),
+              mock.patch.object(processes, "_job_name", return_value="synthetic"),
+              mock.patch.object(processes, "kernel", create=True) as kernel):
+            kernel.OpenJobObjectW.return_value = 1234
+            self.assertEqual(processes._open_job(420202), 1234)
+
+    def test_persistent_missing_identity_does_not_authorize_job_lookup(self):
+        with (mock.patch.object(processes, "identity", return_value=None),
+              mock.patch.object(processes, "alive", return_value=True),
+              mock.patch.object(processes.time, "monotonic", side_effect=[0, 2]),
+              mock.patch.object(processes, "kernel", create=True) as kernel):
+            with self.assertRaisesRegex(OSError, "identity is unavailable"):
+                processes._open_job(420202)
+            kernel.OpenJobObjectW.assert_not_called()
+
+    def test_inaccessible_process_must_be_reobserved_before_reporting_live(self):
+        with (mock.patch.object(processes, "kernel", create=True) as kernel,
+              mock.patch.object(processes.ctypes, "get_last_error", side_effect=[5, 87], create=True)):
+            kernel.OpenProcess.return_value = None
+            # The first OpenProcess raced teardown; the next OS observation is
+            # ERROR_INVALID_PARAMETER. An inaccessible PID alone proves nothing.
+            self.assertFalse(processes.alive(420202))
+
+    def test_persistent_access_failure_stays_ambiguous(self):
+        with (mock.patch.object(processes, "kernel", create=True) as kernel,
+              mock.patch.object(processes.ctypes, "get_last_error", return_value=5, create=True),
+              mock.patch.object(processes.time, "monotonic", side_effect=[0, 2])):
+            kernel.OpenProcess.return_value = None
+            self.assertTrue(processes.alive(420202))
+
     def test_changed_birth_token_refuses_job_termination(self):
         # A provider can exit between admission and cancellation. Native APIs
         # are injected here; the actual Job/handle behavior has its own test.
@@ -39,6 +75,28 @@ class JobIdentityAuthorizationTests(unittest.TestCase):
               mock.patch.object(processes, "kernel", create=True) as kernel,
               mock.patch.object(processes, "identity", return_value={"start_sec": 222, "start_usec": 7})):
             with self.assertRaisesRegex(OSError, "identity changed"):
+                processes.terminate_group(420202, expected_start="111:7")
+            kernel.TerminateJobObject.assert_not_called()
+            kernel.CloseHandle.assert_called_once_with(1234)
+
+    def test_retiring_job_is_observed_through_the_retained_handle(self):
+        with (mock.patch.object(processes, "_open_job", return_value=1234) as open_job,
+              mock.patch.object(processes, "kernel", create=True) as kernel,
+              mock.patch.object(processes, "identity", return_value=None),
+              mock.patch.object(processes, "_job_members", side_effect=[{420202}, set()]) as members):
+            processes.terminate_group(420202, expected_start="111:7")
+            open_job.assert_called_once()
+            self.assertEqual(members.call_args_list, [mock.call(1234), mock.call(1234)])
+            kernel.TerminateJobObject.assert_not_called()
+            kernel.CloseHandle.assert_called_once_with(1234)
+
+    def test_unknown_live_job_is_not_terminated_or_reported_stopped(self):
+        with (mock.patch.object(processes, "_open_job", return_value=1234),
+              mock.patch.object(processes, "kernel", create=True) as kernel,
+              mock.patch.object(processes, "identity", return_value=None),
+              mock.patch.object(processes, "_job_members", return_value={420202}),
+              mock.patch.object(processes.time, "monotonic", side_effect=[0, 2])):
+            with self.assertRaisesRegex(OSError, "identity is unavailable"):
                 processes.terminate_group(420202, expected_start="111:7")
             kernel.TerminateJobObject.assert_not_called()
             kernel.CloseHandle.assert_called_once_with(1234)

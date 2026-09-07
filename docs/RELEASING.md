@@ -34,7 +34,7 @@ The runtime ZIP is available for users who want only the local marketplace and
 plugin payload, without a full development checkout. Keep the extracted source
 for reinstall/update, and let Codex manage its installed copy.
 
-This layout is an **unreleased development change**. The already published
+This layout ships in **v0.4.0-alpha.2**. The already published
 `v0.4.0-alpha.1` assets and historical file counts remain unchanged.
 
 ## Channels
@@ -42,7 +42,7 @@ This layout is an **unreleased development change**. The already published
 - `main` and `v0.3.0` remain the stable macOS entry during 0.4 testing.
 - `codex/public-release` is the temporary 0.4 development branch. Its PR stays
   unmerged until stable Windows acceptance passes.
-- Windows preview users explicitly select `v0.4.0-alpha.1`; a branch checkout
+- Windows preview users explicitly select `v0.4.0-alpha.2`; a branch checkout
   or an unpublished tag is never an installed-release claim.
 - Keep the plugin and marketplace names stable. Select one source in a Codex
   home; use separate test homes when comparing versions.
@@ -79,10 +79,10 @@ model call is required to build, audit, tag, or publish.
 
 After the candidate's CI and native checks pass, create an annotated tag on
 that exact commit and push the branch and tag. Create a release with
-`gh release create v0.4.0-alpha.1 --verify-tag --draft --prerelease --latest=false`,
+`gh release create v0.4.0-alpha.2 --verify-tag --draft --prerelease --latest=false`,
 attaching source and runtime archives, both manifests, checksums, sanitized validation summary, and
 known issues. Read the completed draft and verify assets before publishing it
-with `gh release edit v0.4.0-alpha.1 --draft=false --prerelease --latest=false`.
+with `gh release edit v0.4.0-alpha.2 --draft=false --prerelease --latest=false`.
 Use a notes file for release text.
 
 Download the published files and verify checksums. Install through the public

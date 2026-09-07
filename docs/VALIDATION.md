@@ -1,12 +1,31 @@
 # Release validation
 
-Target version: **0.4.0-alpha.1 (Windows preview)**.
+Target version: **0.4.0-alpha.2 (Windows preview)**.
 **Windows stable release acceptance: NOT ACCEPTED.** The stable target is
 Windows 11 23H2+ x64, PowerShell, and native Python 3.10+ x64. A native 23H2
 client is sufficient for the single-account release gate. Testing 24H2+ is
 additional coverage, not a release prerequisite. The target was revised on
 2026-09-07; this changes the required environment, not the result of any test.
 Existing preview evidence does not establish full provider parity.
+
+## Alpha.2 lifecycle corrections
+
+Cleanup reobserves short process-exit transitions before deciding whether a
+provider is absent. Missing identity remains unknown while the process group
+persists; SID/Session/logon or birth-token mismatches never authorize a signal.
+Windows retains the same Job handle when a leader disappears during termination.
+macOS revalidates the birth token immediately before a durable group signal.
+Cancellation repeats reconciliation when its worker exits after the initial
+status observation, including the guarded pre-lease launch window.
+
+Deterministic regression fixtures exercise the formerly failing interleavings,
+persistent access failure, and reused process identities. Native concurrent
+cancellation and the full OS suites provide separate runtime evidence. Exact
+candidate commit, counts, artifacts and native results belong in the release's
+validation asset; historical runs below retain their original snapshot IDs.
+Alpha.2 also ships named Windows agy profiles and lean universal packaging.
+None of these changes claims to fix the provider's project-write restriction or
+to replace the still-missing real deadline evidence.
 
 ## Current implementation and evidence boundary
 

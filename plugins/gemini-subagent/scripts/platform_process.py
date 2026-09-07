@@ -130,12 +130,20 @@ def _job_name(pid):
 def _open_job(pid, access=4):
     # Local\\ names are session-scoped. ERROR_FILE_NOT_FOUND in a foreign
     # session must never be interpreted as proof that its Job has stopped.
-    actual = identity(pid)
-    if actual is not None:
-        if not same_context(actual.get("windows_context"), current_context()):
-            raise OSError("Windows execution context differs; use the original logon session.")
-    elif alive(pid):
-        raise OSError("Windows process identity is unavailable; Job absence is unproven.")
+    deadline = time.monotonic() + 0.25
+    while True:
+        actual = identity(pid)
+        if actual is not None:
+            if not same_context(actual.get("windows_context"), current_context()):
+                raise OSError("Windows execution context differs; use the original logon session.")
+            break
+        if not alive(pid):
+            break
+        # Token queries can fail during teardown before the process becomes
+        # signalled. Reobserve; never use an inaccessible PID as absence proof.
+        if time.monotonic() >= deadline:
+            raise OSError("Windows process identity is unavailable; Job absence is unproven.")
+        time.sleep(0.02)
     handle = kernel.OpenJobObjectW(access, False, _job_name(pid))
     if not handle:
         error = ctypes.get_last_error()
@@ -166,24 +174,28 @@ def enter_job():
     _owned_job = handle
 
 
+def _job_members(handle):
+    count = 64
+    while count <= 65536:
+        class Pids(ctypes.Structure):
+            _fields_ = [("assigned", W.DWORD), ("listed", W.DWORD),
+                        ("pids", ctypes.c_size_t * count)]
+        value = Pids()
+        if kernel.QueryInformationJobObject(handle, 3, ctypes.byref(value), ctypes.sizeof(value), None):
+            return set(value.pids[:value.listed])
+        error = ctypes.get_last_error()
+        if error != 234:
+            raise ctypes.WinError(error)
+        count = max(count * 2, value.assigned + 16)
+    raise OSError("Process Job membership exceeds the supported bound.")
+
+
 def group_members(pid):
     handle = _open_job(pid)
     if handle is None:
         return set()
     try:
-        count = 64
-        while count <= 65536:
-            class Pids(ctypes.Structure):
-                _fields_ = [("assigned", W.DWORD), ("listed", W.DWORD),
-                            ("pids", ctypes.c_size_t * count)]
-            value = Pids()
-            if kernel.QueryInformationJobObject(handle, 3, ctypes.byref(value), ctypes.sizeof(value), None):
-                return set(value.pids[:value.listed])
-            error = ctypes.get_last_error()
-            if error != 234:
-                raise ctypes.WinError(error)
-            count = max(count * 2, value.assigned + 16)
-        raise OSError("Process Job membership exceeds the supported bound.")
+        return _job_members(handle)
     finally:
         kernel.CloseHandle(handle)
 
@@ -209,6 +221,16 @@ def terminate_group(pid, code=125, *, expected_start=None):
             # A durable cancellation also has to match the leader's birth token.
             actual = identity(pid)
             token = f"{actual['start_sec']}:{actual['start_usec']}" if actual else None
+            if expected_start and actual is None:
+                # Another authorized controller may already be terminating
+                # this Job. Keep the handle: even if the numeric name is reused,
+                # only this exact object's emptiness can finish the operation.
+                deadline = time.monotonic() + 0.25
+                while _job_members(handle):
+                    if time.monotonic() >= deadline:
+                        raise OSError("Process Job identity is unavailable; refusing termination.")
+                    time.sleep(0.02)
+                return
             if not expected_start or token != expected_start:
                 raise OSError("Process Job identity changed; refusing termination.")
         _check(kernel.TerminateJobObject(handle, code))
@@ -309,13 +331,22 @@ def identity(pid):
 def alive(pid):
     if not isinstance(pid, int) or pid <= 1:
         return False
-    handle = kernel.OpenProcess(0x100000, False, pid)
-    if not handle:
-        return ctypes.get_last_error() != 87  # ACCESS_DENIED stays ambiguous/live
-    try:
-        return kernel.WaitForSingleObject(handle, 0) != 0
-    finally:
-        kernel.CloseHandle(handle)
+    deadline = time.monotonic() + 0.1
+    while True:
+        handle = kernel.OpenProcess(0x100000, False, pid)
+        if handle:
+            try:
+                return kernel.WaitForSingleObject(handle, 0) != 0
+            finally:
+                kernel.CloseHandle(handle)
+        error = ctypes.get_last_error()
+        if error == 87:
+            return False
+        # ACCESS_DENIED can also be a short process-teardown window. A later
+        # successful wait/absent PID proves exit; a persistent denial does not.
+        if error != 5 or time.monotonic() >= deadline:
+            return True
+        time.sleep(0.02)
 
 
 def signal_member(pid, sig):

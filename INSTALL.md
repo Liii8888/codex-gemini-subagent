@@ -20,7 +20,7 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
 - Select the channel before installation: stable macOS is `v0.3.0` (follow its
   [versioned guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.3.0/INSTALL.md));
   Windows preview or an explicitly requested macOS preview uses this
-  **0.4.0-alpha.1** guide. Never install the macOS-only stable package as a
+  **0.4.0-alpha.2** guide. Never install the macOS-only stable package as a
   Windows fallback.
   The Windows target is **Windows 11 23H2+ x64, PowerShell, native Python 3.10+
   x64**; macOS remains a target. Check OS build/architecture, Python, Git, and
@@ -34,7 +34,7 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
   and Codex-controlled read/resume evidence, but project writes failed, real
   timeout did not trigger, and first-time official login is unproven. See the
   bundled [platform reference](plugins/gemini-subagent/references/platforms.md).
-  Development named agy accounts require the pinned native contract; Windows shared reads fail closed.
+  Named agy accounts require the pinned native contract; Windows shared reads fail closed.
 - Inspect available official `agy` and optional `gemini` executables and the user's
   requested provider. Installation does not supply those binaries or a Google
   login. For a missing dependency, follow the provider's official instructions
@@ -52,7 +52,7 @@ The public marketplace is `gemini-subagent-public`; the plugin is
 `gemini-subagent`:
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.1 --json
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0-alpha.2 --json
 codex plugin add gemini-subagent@gemini-subagent-public --json
 codex plugin list --marketplace gemini-subagent-public --json
 ```
@@ -62,9 +62,8 @@ To limit the Git marketplace checkout, append `--sparse .agents/plugins
 options; do not edit the installed cache or introduce an install hook to delete
 files. Git still retains some root files and metadata.
 
-**Unreleased lean packaging:** current development snapshots keep tests and
-development tooling outside the installable plugin. The next release can also
-provide a `*-plugin.zip` containing only a local marketplace, install guidance,
+**Lean packaging in alpha.2:** tests and development tooling stay outside the
+installable plugin. The release includes a `*-plugin.zip` containing only a local marketplace, install guidance,
 and the universal plugin. Verify it against `SHA256SUMS` and
 `plugin-manifest.json`, extract it into a retained directory, then use
 `codex plugin marketplace add <extracted-directory> --json` followed by the
