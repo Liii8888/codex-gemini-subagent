@@ -477,13 +477,22 @@ def _migrate_legacy_runtime(root: Path) -> None:
 
 
 def read_json(path: Path, default: Any = None) -> Any:
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except FileNotFoundError:
-        return default
-    except json.JSONDecodeError as exc:
-        raise BridgeError(f"State file is not valid JSON: {path}: {exc}") from exc
+    deadline = time.monotonic() + 0.5 if IS_WINDOWS else 0.0
+    while True:
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except FileNotFoundError:
+            return default
+        except PermissionError:
+            # Windows CRT opens can report a sharing/delete-pending race as
+            # EACCES without winerror. Reobserve briefly; never change ACLs or
+            # turn a persistent denial into a missing/default state.
+            if not IS_WINDOWS or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
+        except json.JSONDecodeError as exc:
+            raise BridgeError(f"State file is not valid JSON: {path}: {exc}") from exc
 
 
 def _migrate_runtime_schema(root: Path) -> None:
@@ -1538,9 +1547,10 @@ def _provider_lease_file(job: dict[str, Any]) -> Path:
 
 def load_provider_lease(job: dict[str, Any]) -> dict[str, Any] | None:
     path = _provider_lease_file(job)
-    if not path.is_file():
+    missing = object()
+    record = read_json(path, missing)
+    if record is missing:
         return None
-    record = read_json(path, {})
     if not isinstance(record, dict) or record.get("version") != 1:
         raise BridgeError("Unsafe provider lease metadata.")
     require_windows_context(record)
@@ -1724,7 +1734,10 @@ def _provider_lease_identity_once(record: dict[str, Any]) -> str:
         and "_provider_gate" in command
         and str(record["lease_id"]) in command
     ):
-        return "reused"
+        # Command lookup is a later OS observation than the birth-token check.
+        # A retiring Darwin process can already report <defunct>. Only a fresh
+        # empty group permits completion; a live mismatch still rejects signals.
+        return "stopped" if not process_group_alive(pgid) else "reused"
     return "owned"
 
 

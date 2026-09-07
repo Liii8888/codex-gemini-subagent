@@ -8,6 +8,10 @@
   guide the declared file tool to use ordinary-file parameters (`IsArtifact=false`
   when supported), and require verification of the actual target. No permission
   broadening, login operation or macOS prompt change is introduced.
+- Recheck group absence when a provider exits during command inspection;
+  retain refusal of live mismatches. Tolerate bounded Windows state-file
+  sharing conflicts, and remove the stat/open race for disappearing leases.
+  Persistent access denial and malformed lease data still fail closed.
 - Carry forward alpha.2 process-ownership recovery fixes and agy-only named
   account storage. Windows profiles remain pinned to their native provider
   contract; Windows shared reads and desktop App integration remain unavailable.

@@ -364,6 +364,28 @@ class CancelIdentityAuthorizationTests(unittest.TestCase):
             self.assertTrue(gemini_subagent.provider_lease_path(job["job_id"]).exists())
             signal_group.assert_not_called()
 
+    def test_provider_exit_during_command_lookup_is_not_pid_reuse(self) -> None:
+        job, _marker, nonce = self.publish_worker(self.reserve(), actual_start_sec=111)
+        lease = self.publish_provider_lease(job, nonce, actual_start_sec=333)
+        with (mock.patch.object(gemini_subagent, "process_group_alive", side_effect=[True, False]),
+              mock.patch.object(gemini_subagent, "process_alive", return_value=True),
+              mock.patch.object(gemini_subagent, "process_identity", return_value=self.identity(self.PROVIDER_PID, start_sec=333)),
+              mock.patch.object(gemini_subagent, "process_command", return_value="<defunct>"),
+              mock.patch.object(gemini_subagent, "signal_managed_group") as signal_group):
+            self.assertEqual(gemini_subagent._provider_lease_identity(lease), "stopped")
+            signal_group.assert_not_called()
+
+    def test_live_provider_command_mismatch_still_rejects_ownership(self) -> None:
+        job, _marker, nonce = self.publish_worker(self.reserve(), actual_start_sec=111)
+        lease = self.publish_provider_lease(job, nonce, actual_start_sec=333)
+        with (mock.patch.object(gemini_subagent, "process_group_alive", return_value=True),
+              mock.patch.object(gemini_subagent, "process_alive", return_value=True),
+              mock.patch.object(gemini_subagent, "process_identity", return_value=self.identity(self.PROVIDER_PID, start_sec=333)),
+              mock.patch.object(gemini_subagent, "process_command", return_value="unrelated-command"),
+              mock.patch.object(gemini_subagent, "signal_managed_group") as signal_group):
+            self.assertEqual(gemini_subagent._provider_lease_identity(lease), "reused")
+            signal_group.assert_not_called()
+
     def test_posix_signal_revalidates_birth_after_earlier_admission(self) -> None:
         with (mock.patch.object(gemini_subagent, "IS_WINDOWS", False),
               mock.patch.object(gemini_subagent, "process_identity", return_value=self.identity(self.PROVIDER_PID, start_sec=222)),

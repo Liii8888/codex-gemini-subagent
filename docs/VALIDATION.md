@@ -43,6 +43,18 @@ candidate's default write prompt, full OS regressions, installed payload and CI
 are identified in the separate exact-build release assets; do not relabel the
 diagnostic snapshot as the release commit.
 
+## Additional release-candidate lifecycle regressions
+
+The first 0.4 candidate's branch CI exposed cancellation/Windows file-access
+races while its PR matrix passed. Deterministic regressions preserve an exit
+between birth verification and command lookup, and sharing/delete-pending
+interference during state reads. A fresh empty group can establish a stopped
+provider; a live command or birth mismatch still rejects ownership. Windows
+state reads wait briefly for sharing interference without changing ACLs;
+persistent denial raises. Lease loading uses one read and still rejects empty
+or null metadata. A native sharing-handle test complements the injected cases.
+The initial failing CI is retained; consult the final candidate's separate run.
+
 ## Alpha.2 lifecycle corrections
 
 Cleanup reobserves short process-exit transitions before deciding whether a
