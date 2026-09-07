@@ -1,19 +1,19 @@
 # Setup and configuration
 
-[Install the Codex plugin](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0/README.md#install-in-codex)
+[Install the Codex plugin](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.1/README.md#install-in-codex)
 first, or clone the repository and set `SUBAGENT` to the absolute path of
 `plugins/gemini-subagent/scripts/gemini_subagent.py`.
 
-**0.4.0 targets macOS and native Windows 11 23H2+ x64**, PowerShell and Python
+**0.4.1 targets macOS and native Windows 11 23H2+ x64**, PowerShell and Python
 3.10+ x64. Prefer official `agy` for a new setup; preserve a working or requested
 Gemini CLI configuration. Windows named agy profiles require the pinned native
 contract below; shared reads remain disabled.
 
 Read the bundled [platform reference](references/platforms.md). Windows evidence
-covers ordinary-user native control, existing authentication, Codex-controlled
-reads/resume, real agy file creation/editing, cancellation and deadline cleanup.
-Consult version-bound release assets for exact-source results. First-time
-Windows login remains unverified; 24H2+ testing is additional coverage.
+covers ordinary-user native control, official agy login, Codex-controlled
+reads/resume, project writes, cancellation, and deadline cleanup. The
+[validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.1/docs/VALIDATION.md)
+distinguishes tested source versions. Native 24H2+ coverage remains unverified.
 
 The examples below use macOS `python3`. On Windows, obtain `$InstalledPath`
 from the actual Codex installation metadata, resolve `$Python` to a verified
@@ -27,7 +27,7 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 ```
 
 Do not guess a cache directory, execute a `.py` association, rely on a shebang,
-or substitute WSL. See the [installation preflight](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0/INSTALL.md) and the
+or substitute WSL. See the [installation preflight](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.1/INSTALL.md) and the
 [official Windows](https://learn.chatgpt.com/docs/windows/windows-app) and
 [Antigravity](https://antigravity.google/docs/cli/install) setup guides.
 

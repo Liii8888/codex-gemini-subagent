@@ -7,7 +7,7 @@ binary, daemon, or desktop application is bundled.
 
 ## Support and evidence
 
-`0.4.0` targets macOS and Windows 11 **23H2+ x64**, PowerShell and native
+`0.4.1` targets macOS and Windows 11 **23H2+ x64**, PowerShell and native
 Python **3.10+ x64**. Linux and Windows ARM64 are not release targets.
 
 The ordinary-user 23H2 lab covers native ACLs and locks, lifecycle/crash cleanup,
@@ -25,15 +25,14 @@ agy can soft-fail a tool while the surrounding turn returns `SUCCESS`.
 An artifact-path rejection is not an instruction to grant wider permissions,
 redirect output into an artifact directory, or claim the requested write happened.
 
-First-time official Windows login remains **unverified**. The lab reused existing
-authorized test credentials; that is not a public onboarding procedure or a
-credential migration recommendation. New users complete official Codex/provider
-login. Do not extract tokens to work around failed authentication.
+Official Windows agy login, saved-profile capture, and readiness after reopening
+were verified on the existing 23H2 test machine. A clean OS-user installation and
+Codex's first login were not tested. New users complete the official CLI/browser
+flow; do not extract tokens to work around failed authentication.
 
 Every observation belongs to its recorded source, provider binary, OS/build,
-account and permission context. The release's validation assets identify exact
-commits, hashes, executed checks, failures and skips; no version string alone
-certifies another build or machine.
+account and permission context. The repository validation guide identifies the
+source versions and coverage limits; a version string does not certify another machine.
 
 ## Resolve and invoke the installed runner
 
@@ -64,10 +63,9 @@ Set-Location -LiteralPath 'C:\Projects\your-project'
 Do not use `.py` associations, shebangs, `Invoke-Expression`, administrator
 rights, Full Access, or an execution-policy bypass as substitutes. If the host
 requires approval, request only the exact interpreter, installed script,
-arguments, project, and operation. The lab kept `windows.sandbox="unelevated"`
-but needed normal one-time host approval for four exact plugin commands because
-private ACL maintenance was denied inside the sandbox. It did not prove fully
-sandbox-contained execution without approvals.
+arguments, project, and operation. Private ACL maintenance can require normal
+host approval even with `windows.sandbox="unelevated"`. Keep the sandbox enabled;
+do not assume every operation runs inside it without approval.
 
 ## State, identity, and capability boundaries
 
@@ -135,17 +133,12 @@ record metadata fail closed and preserve saved records for recovery. Do not
 run unmanaged agy or another account switcher while this adapter owns the slot.
 Windows shared reads stay disabled.
 
-## Stable Windows gate
+## Validation scope
 
-Release acceptance needs native Windows 11 23H2+ x64 ordinary-user evidence for the final
-version: public installation and five-skill discovery, authentication and client
-restart using explicitly authorized existing test credentials, actual
-reads/resume/project writes/cancel/timeout,
-ACLs, lock contention, disconnect/crash recovery, and OS-confirmed descendant
-cleanup without harming an unrelated process. macOS regression must also pass.
-
-Fresh official login remains unverified and requires a separate requested
-onboarding test. Named agy profiles, shared reads, optional Gemini CLI Windows
-live support and desktop App integration each have separate evidence scopes;
-one does not enable or certify the others. Details and historical
-results are in the [repository validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.0/docs/VALIDATION.md).
+Windows support covers ordinary-user, single-account agy CLI operation on the
+tested 23H2 client. Two distinct live accounts, actual token rotation, 24H2+,
+Windows shared reads, optional Gemini CLI live use, and desktop App integration
+have separate unverified scopes. See the
+[validation guide](https://github.com/Liii8888/codex-gemini-subagent/blob/v0.4.1/docs/VALIDATION.md)
+for the source versions tested. Do not infer additional capabilities from a
+successful install or from another platform's results.

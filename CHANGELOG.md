@@ -1,6 +1,18 @@
 # Changelog
 
-## 0.4.0 — 2026-09-07
+## 0.4.1 — 2026-09-07
+
+- Publish the cross-platform runtime with one installation ZIP and one checksum.
+  Source remains available through Git; duplicate source archives and internal
+  audit/validation attachments are omitted.
+- Shorten user documentation, retain installation and permission boundaries,
+  and remove historical audit inventories from the current tree.
+- Record the completed official Windows agy login and saved-profile capture.
+  Keep source-specific native evidence and unverified scopes explicit.
+- Keep the v0.4.0 runtime behavior unchanged apart from the version identifier;
+  development tests and CI remain outside the installed plugin.
+
+## 0.4.0 — 2026-09-07 (unpublished candidate)
 
 - Prepare the cross-platform release for macOS and ordinary-user Windows 11
   23H2+ x64, retaining one lean plugin and five shared skills.

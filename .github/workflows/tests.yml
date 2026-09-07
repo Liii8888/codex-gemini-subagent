@@ -34,7 +34,7 @@ jobs:
           python -c "import os,platform,sys; print(platform.platform()); print(sys.version); print('Runner image:',os.environ.get('ImageOS'),os.environ.get('ImageVersion'))"
       - name: Validate distribution
         run: python tools/check_package.py
-      - name: Build committed source and runtime bundles
+      - name: Build committed install ZIP and checksum
         run: >-
           python -B -c "import os,subprocess,sys; from pathlib import Path;
           subprocess.run([sys.executable,'-B','tools/build_release.py','--ref','HEAD',

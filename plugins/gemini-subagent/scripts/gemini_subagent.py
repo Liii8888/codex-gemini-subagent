@@ -86,7 +86,7 @@ from platform_process import (
 )
 
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 SCRIPT_PATH = Path(__file__).resolve()
 TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 ACTIVE_STATES = {"queued", "running", "cancelling", "recovery_required"}

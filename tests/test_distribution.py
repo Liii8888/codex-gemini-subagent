@@ -1,12 +1,10 @@
 """Exercise the installed-reference and committed-archive distribution boundaries."""
 import hashlib
-import io
 import json
 import os
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -71,25 +69,21 @@ class DistributionTests(unittest.TestCase):
             with self.subTest(names=names), self.assertRaises(AssertionError):
                 check_package.check_windows_paths(names)
 
-    def test_both_archives_match_committed_manifest_and_exclude_ignored_files(self):
+    def test_install_zip_matches_committed_payload_and_excludes_ignored_files(self):
         self.commit()
         self.write("ignored.txt", "This must not be published\n")
         manifest = build_release.build(self.root, "HEAD", self.output)
         self.assertEqual(manifest["commit"], self.git("rev-parse", "HEAD").decode().strip())
-        expected = {x["path"]: x["sha256"] for x in manifest["files"]}
+        expected = {x["path"]: x["sha256"] for x in manifest["runtime"]["files"]}
         self.assertNotIn("ignored.txt", expected)
         self.assertFalse(any(x.startswith(".git/") for x in expected))
-        prefix = "codex-gemini-subagent-0.4.0-alpha.1/"
-        with zipfile.ZipFile(next(self.output.glob("codex-gemini-subagent-*.zip"))) as archive:
+        prefix = "gemini-subagent-0.4.0-alpha.1-plugin/"
+        with zipfile.ZipFile(next(self.output.glob("*-plugin.zip"))) as archive:
             zipped = {n.removeprefix(prefix): hashlib.sha256(archive.read(n)).hexdigest()
                       for n in archive.namelist()}
-        with tarfile.open(next(self.output.glob("*.tar.gz"))) as archive:
-            packed = {}
-            for entry in archive.getmembers():
-                with archive.extractfile(entry) as source:
-                    packed[entry.name.removeprefix(prefix)] = hashlib.sha256(source.read()).hexdigest()
         self.assertEqual(zipped, expected)
-        self.assertEqual(packed, expected)
+        self.assertEqual({p.name for p in self.output.iterdir()},
+                         {"gemini-subagent-0.4.0-alpha.1-plugin.zip", "SHA256SUMS"})
         second = self.output.with_name("release-2")
         build_release.build(self.root, "HEAD", second)
         for asset in self.output.iterdir():
@@ -97,13 +91,13 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             build_release.build(self.root, "HEAD", self.output)
 
-    def test_runtime_bundle_omits_development_but_source_archive_preserves_it(self):
+    def test_development_files_remain_in_git_but_not_release_assets(self):
         self.write("tests/support/sitecustomize.py", "raise RuntimeError('test only')\n")
         self.write("tools/check.py", "raise RuntimeError('development only')\n")
         self.write("docs/DEVELOPMENT.md", "Development instructions\n")
         self.commit()
         source = build_release.build(self.root, "HEAD", self.output)
-        runtime = json.loads((self.output / "plugin-manifest.json").read_text())
+        runtime = source["runtime"]
         self.assertEqual(runtime["commit"], source["commit"])
         self.assertEqual(runtime["source_content_sha256"], source["content_sha256"])
         expected = {row["path"]: row["sha256"] for row in runtime["files"]}
@@ -117,7 +111,7 @@ class DistributionTests(unittest.TestCase):
             self.assertNotIn(path, actual)
         self.assertIn(".agents/plugins/marketplace.json", actual)
         sums = (self.output / "SHA256SUMS").read_text().splitlines()
-        self.assertEqual(len(sums), 5)
+        self.assertEqual(len(sums), 1)
         for line in sums:
             digest, name = line.split("  ")
             self.assertEqual(hashlib.sha256((self.output / name).read_bytes()).hexdigest(), digest)

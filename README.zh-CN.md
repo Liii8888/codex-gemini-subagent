@@ -1,152 +1,77 @@
 # Gemini Subagent for Codex
 
-[English](README.md) · [给 Agent 的安装指南](INSTALL.md) · [安全与权限](SECURITY.md) · [源码审查报告](docs/SECURITY_REVIEW.md) · [配置说明](plugins/gemini-subagent/README.md) · [MIT 许可证](LICENSE)
+[English](README.md) · [Agent 安装指南](INSTALL.md) · [配置说明](plugins/gemini-subagent/README.md) · [安全与权限](SECURITY.md)
 
-让 Codex 像调用 subagent 一样，把任务交给 **Antigravity CLI（`agy`）** 或可选的 **Gemini CLI**。
-Codex 负责启动、等待、获取结果、续接会话、取消任务和验证改动。
+让 Codex 把任务交给 **Antigravity CLI（`agy`）** 或可选的 **Gemini CLI**。
+Codex 负责启动后台任务、查询进度、获取结果、续接会话、取消任务和验证改动。
 
-**0.4.0 面向 macOS 和原生 Windows 11 23H2+ x64**，要求 Python 3.10+；
-Windows 使用 PowerShell。实际测试机为 23H2，24H2+ 属于后续覆盖，不是发布前提。
-
-普通用户测试已取得 agy 真实新建文件、修改文件、原生续接、模型响应期间取消，
-以及真实超时和进程收尾的证据。具体发行包是否通过验收，以绑定准确提交的发行附件为准。
-官方首次 Windows 登录仍未独立验证；测试复用了已授权的既有凭据。
-Codex 集成保留正常的精确命令审批。
-
-Agent 可以保存和选择 **agy** 账号：macOS 使用 Keychain，Windows 使用凭据管理器。
-Windows 账号适配限定于已核验的 agy 1.1.27 x64 和普通桌面用户；不管理 Codex 凭据，
-Windows 共享读仍关闭。插件不捆绑 provider 程序、凭据、服务或 API 代理。
-详见[平台说明](plugins/gemini-subagent/references/platforms.md)和[版本绑定验证记录](docs/VALIDATION.md)。
-
-继续使用精简通用包：一套五个 Skill 和运行代码，系统差异集中处理；测试、开发工具不随
-插件安装，不增加其他平台的二进制或依赖。提供完整源码包和精简安装包，旧标签及旧包保持不变。
-详见[打包说明](docs/RELEASING.md#install-payload)。
-
-## 让你的 Agent 安装和配置
-
-把下面这句话交给 Codex：
-
-> 帮我安装并配置 https://github.com/Liii8888/codex-gemini-subagent ，用于当前项目。
-> macOS 或 Windows 使用 v0.4.0。
-> 先读所选版本的 INSTALL.md 并检查权限，再安装插件，按 setup Skill 完成配置。
-> 最后告诉我哪个 provider 已经可用，以及以后怎么让你调用 Gemini。
-
-[INSTALL.md](INSTALL.md) 是专门给安装 Agent 的入口，包含环境检查、安装、定位运行器、
-工作目录授权、账号检查和后续调用。安装包内有完整的 5 个 Skill 和运行脚本，
-新开的 Codex 任务可以自动发现它们，无需记住仓库里的命令。
-
-## 已有功能
-
-- 后台任务、持久化 job ID、进度查询、结果保存、超时与取消。
-- Gemini session 和 Antigravity conversation 原生续接，绑定原账号和项目。
-- 通过官方 `agy /usage` 查询额度及重置时间。
-- 可选的操作系统凭据存储、多账号管理、冷却和受限的失败换号；macOS 使用 Keychain，
-  Windows 账号功能限定于已核验的原生凭据契约。
-  已登录时由 Agent 调用 `account import-current` 保存，不要求后台自动捕获登录。
-- 默认串行；同账号 Antigravity 只读双并发需要真实探针通过并由用户显式开启。
-- 纯 Python 标准库运行器，无常驻 daemon、无前端。
+**0.4.1 支持 macOS 和原生 Windows 11 23H2+ x64。** 一个通用插件包含五个
+Skill 和 Python 运行代码，不捆绑 provider 程序、依赖、账号或开发测试。
 
 ## 安装
 
-需要 macOS 或上述原生 Windows 环境、Python 3.10+、Git、支持插件命令的 Codex CLI，
-以及官方 provider CLI。新配置优先选择 `agy`；保留用户指定或已有可用的 `gemini`。
-首次登录由你在官方交互流程里完成。
-会员订阅不等于每个 CLI、模型或额度接口都必然可用。
+需要 Python 3.10+、支持插件命令的 Codex CLI，以及已经安装的官方 provider CLI。
+Windows 使用原生 x64 Python 和 PowerShell。需要登录时，通过官方 CLI／浏览器完成。
 
-阅读源码后安装已发布版本：
+把下面这句话交给 Codex：
 
-```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0
+> 帮我安装并配置 https://github.com/Liii8888/codex-gemini-subagent 的 v0.4.1，
+> 用于当前项目。按 INSTALL.md 和 setup Skill 操作，最后告诉我哪个 provider 已经可用。
+
+也可以在安装了 Git 的环境中执行：
+
+```sh
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.1 --sparse .agents/plugins --sparse plugins/gemini-subagent
 codex plugin add gemini-subagent@gemini-subagent-public
 ```
 
-macOS 可选择旧版 `v0.3.0` 回退；Windows 回退到先前可用的 Windows 版本，不能使用 `v0.3.0`。
+还可以从[发行页面](https://github.com/Liii8888/codex-gemini-subagent/releases/tag/v0.4.1)
+下载安装 ZIP，核对 `SHA256SUMS` 后解压到准备保留的目录，将该目录的绝对路径传给
+`codex plugin marketplace add`，再执行相同的 `plugin add` 命令。
+更新和定位运行器的步骤见 [INSTALL.md](INSTALL.md)。
 
-安装后新建一个 Codex 任务或 CLI 会话，再使用：
+安装后新建 Codex 任务或 CLI 会话，直接说：
 
-```text
-用 $gemini-subagent:setup 检查这个项目的 Gemini 配置。
-用 $gemini-subagent:rescue 让 Gemini 只读审查这个项目，并返回问题清单。
-用 $gemini-subagent:status 查看任务、账号和额度。
-用 $gemini-subagent:result 读取上次任务结果。
-用 $gemini-subagent:cancel 取消指定任务。
-```
+> 让 Gemini 检查这个项目，把主要问题告诉我。
 
-公开版仍使用 `gemini-subagent` 名称；如果已有旧个人版，选择一个来源使用。
-安装发现和新会话加载机制见 [OpenAI 官方插件说明](https://learn.chatgpt.com/docs/plugins)。
-版本固定命令要求对应发行标签已经存在；开发中的 checkout 不代表标签已经发布。
-Windows 前置检查参考 [Codex 官方 Windows 文档](https://learn.chatgpt.com/docs/windows/windows-app)
-和 [Antigravity 官方安装文档](https://antigravity.google/docs/cli/install)。
-不要自动改执行策略、申请管理员或 Full Access，也不要默认通过 WSL 运行。
+| Skill | 用途 |
+| --- | --- |
+| `gemini-subagent:setup` | 配置 provider，检查是否可用 |
+| `gemini-subagent:rescue` | 委派任务或续接上次工作 |
+| `gemini-subagent:status` | 查询任务、账号、额度和会话 |
+| `gemini-subagent:result` | 读取已保存的结果 |
+| `gemini-subagent:cancel` | 取消指定任务 |
 
-## 直接运行
+## 账号和权限
 
-```bash
-git clone --branch v0.4.0 https://github.com/Liii8888/codex-gemini-subagent.git
-cd codex-gemini-subagent
-SUBAGENT="$PWD/plugins/gemini-subagent/scripts/gemini_subagent.py"
+插件**只管理 agy 账号**：macOS 使用 Keychain，Windows 使用凭据管理器。
+已有可用登录时，Agent 可调用 `account import-current` 保存，不需要重新登录。
+命名账号属于可选的非官方兼容功能；Windows 适配限定于已核验的 agy 1.1.27 x64
+和普通桌面用户。
 
-cd /你的项目绝对路径
-python3 "$SUBAGENT" doctor --json
-python3 "$SUBAGENT" account list
-python3 "$SUBAGENT" start --provider agy --mode read --cwd "$PWD" \
-  --prompt '检查项目结构，返回主要问题。' --wait
-```
+默认串行执行。macOS 并行读取需要匹配的真实探针和明确启用；Windows 共享读关闭。
+`read` 使用 provider 自身的 plan／sandbox 控制，不等于逐工具强制禁写。
+正常的宿主审批仍然适用，详见[安全与权限](SECURITY.md)。
 
-`--mode write` 用于需要改文件的任务。Windows 运行器会明确普通项目文件与 artifact 的区别，
-并登记已授权工作目录；完成后仍须核对实际文件内容。续接任务使用
-`start --resume <job-id> --prompt-file <文件> --wait`。
+任务上下文通过你的账号发送给 provider；任务数据留在本地私有运行目录，保存的 agy
+凭据留在操作系统凭据库。卸载插件不会删除既有登录或运行数据。
 
-Windows 使用实际安装结果中的 `installedPath`，并显式调用已经核验的原生 Python
-3.10+ x64；不要依赖 `.py` 文件关联或 shebang。以下 `$InstalledPath` 和 `$Python`
-须先从实际安装结果和本机 Python 解析得到，不能猜插件缓存路径：
+## 兼容范围
 
-```powershell
-$Subagent = Join-Path $InstalledPath 'scripts\gemini_subagent.py'
-Set-Location -LiteralPath 'C:\Projects\your-project'
-& $Python $Subagent doctor --json
-```
+原生测试覆盖 Windows 11 23H2 x64，包括 agy 官方登录、读取、续接、项目文件写入、
+取消、超时及进程收尾。[验证说明](docs/VALIDATION.md)区分各项证据对应的源码版本。
+24H2+、桌面 App 集成、两个不同真实 agy 账号及真实 token 轮换尚未验证。
+可选 Gemini CLI 的 Windows 真实使用另行验收；Linux 不属于发布目标。
 
-`doctor` 会初始化私有状态；Windows 的 `capabilities` 包含 `task_lifecycle`、
-`credential_storage`、`credential_profiles`、`shared_reads`、`desktop_integration`。
-这些字段描述本机实现能力，不自动证明该机器已验收；发行证据在版本附件中。
-Windows profile 需要匹配固定 provider 契约及普通用户上下文；共享读不可用，桌面集成待验收。
-新 macOS 用户的运行数据默认放在 `~/Library/Application Support/Gemini-Subagent/runtime`，
-Windows 则使用真实操作系统用户的 `%LOCALAPPDATA%\Gemini-Subagent\runtime`。
-首次初始化只授权当前项目；同系统的兼容升级保留既有状态，不跨系统迁移凭据或原生会话。
-更多路径、Antigravity 多账号和并发配置见 [配置说明](plugins/gemini-subagent/README.md)。
+## 开发
 
-## 适用范围
+测试和 CI 保留在源码仓库，不随插件安装。
 
-- Windows 支持范围为普通用户、单账号 agy CLI。首次登录、共享读、桌面 App 和可选 Gemini CLI 的 Windows 真实使用分别验收；Linux 不属于发布目标。
-- `read` 使用 provider 的 plan/approval 与 sandbox，属于只读意图，不能当作强制逐工具禁写。
-- 操作系统凭据切换和同账号并发属于非官方兼容能力，provider 更新后可能失效。
-- 任务及 provider 读取的相关项目内容会通过你的账号发送给 Google。
-- prompt、事件流、结果和账号元数据保存在本地私有运行目录；凭据快照只留在对应系统的凭据存储中。
-- 不要向 Codex 或 GitHub issue 提交密码、token、Cookie、2FA 或恢复码。
-
-## 验证
-
-```bash
+```sh
 python3 tools/check_package.py
-python3 -W error::ResourceWarning -m unittest discover \
-  -s tests -v
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
 ```
 
-测试使用模拟 provider 与临时目录，不需要登录 Google，也不会发起付费模型调用。
-测试通过不代表某个账号当前有额度，也不代表其他机器自动获得并发能力。
-详见 [发布验证](docs/VALIDATION.md)。项目采用 MIT 许可证。
-CI 在 main、预发布分支、PR 和版本标签上运行 macOS／Windows × Python 3.10／3.14。
-执行结果以对应提交的 CI 和发行验证附件为准；Windows Server CI 不替代 Windows 11 桌面验收。
-Darwin 专属跳过与实际执行的原生测试分别报告。
-渠道、打包、升级退回和公开核验流程见[维护与发布说明](docs/RELEASING.md)。
-
-没有 Codex 或 Google 登录的 Windows 机器也可以运行：
-
-```powershell
-.\tools\validate_windows.ps1 -Python 'C:\Path\To\python.exe'
-```
-
-脚本只检查本地前置条件、包和 mock 测试，输出精简脱敏 JSON；不会运行真实 `doctor`、
-枚举或保存凭据、安装软件或访问网络。`-Live -ProjectPath 'C:\Projects\your-project'`
-只增加真人验收步骤，`-SharedProbe` 单独增加共享并发检查清单，两者均不执行真实探针或启用并发。
+测试使用模拟 provider 和临时状态，无需 Google 登录，也不发起付费调用。
+详见[开发约定](docs/DEVELOPMENT.md)和[发行维护](docs/RELEASING.md)。
+项目采用 [MIT 许可证](LICENSE)。

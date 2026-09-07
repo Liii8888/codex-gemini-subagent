@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Build source archives and a lean install bundle from one committed snapshot.
+"""Build a lean install ZIP and its checksum from one committed snapshot.
 
 No network, provider call, installation, tag creation, or publication occurs.
 """
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import io
 import json
@@ -50,7 +49,7 @@ def install_files(files: dict, version: str, commit: str) -> dict:
     assert len(marketplace["plugins"]) == 1
     assert marketplace["plugins"][0]["source"] == {
         "source": "local", "path": "./plugins/gemini-subagent"}
-    # Link development material to its exact source commit, outside the payload.
+    # Keep installation and compatibility guidance with the payload.
     selected["README.md"] = ((
         f"# Gemini Subagent {version} — runtime bundle\n\n"
         f"Source commit: `{commit}`. This archive contains the same universal\n"
@@ -67,10 +66,8 @@ def install_files(files: dict, version: str, commit: str) -> dict:
         "an existing source without reviewing the installed version. Codex keeps\n"
         "its own installed copy. Keep the extracted source for reinstall/update.\n"
         "Use official plugin removal; do not delete runtime data or logins.\n\n"
-        "The version string alone is not release acceptance. Review\n"
-        f"[validation](https://github.com/Liii8888/codex-gemini-subagent/blob/{commit}/docs/VALIDATION.md)\n"
-        "for the actual platform and provider evidence. New builds use new\n"
-        "release versions; do not replace assets of an existing public tag.\n"
+        "See the bundled [platform guide](plugins/gemini-subagent/references/platforms.md)\n"
+        "for compatibility and execution requirements.\n"
     ).encode("utf-8"), 0o644)
     check_windows_paths(selected)
     return selected
@@ -108,7 +105,6 @@ def build(root: Path, ref: str, output: Path) -> dict:
     version = json.loads(files[manifest_path][0])["version"]
     if not isinstance(version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", version):
         raise ValueError("Invalid release version")
-    prefix = "codex-gemini-subagent-" + version
     inventory = inventory_for(files)
     manifest = {"schema_version": 1, "commit": commit, "version": version,
                 "content_sha256": content_digest(inventory),
@@ -122,26 +118,15 @@ def build(root: Path, ref: str, output: Path) -> dict:
                         "content_sha256": content_digest(runtime_inventory),
                         "files": runtime_inventory}
     output.mkdir(parents=True, exist_ok=True)
-    names = [prefix + ".tar.gz", prefix + ".zip", "source-manifest.json",
-             runtime_prefix + ".zip", "plugin-manifest.json", "SHA256SUMS"]
+    names = [runtime_prefix + ".zip", "SHA256SUMS"]
     if any((output / name).exists() for name in names):
         raise FileExistsError("Refusing to replace existing release assets")
-    tar_buffer = io.BytesIO()
-    with tarfile.open(fileobj=tar_buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
-        for name, (data, mode) in sorted(files.items()):
-            info = tarfile.TarInfo(prefix + "/" + name)
-            info.size, info.mode, info.mtime = len(data), mode, 0
-            archive.addfile(info, io.BytesIO(data))
-    with (output / names[0]).open("wb") as stream:
-        with gzip.GzipFile(fileobj=stream, mode="wb", filename="", mtime=0) as compressed:
-            compressed.write(tar_buffer.getvalue())
-    write_zip(output / names[1], prefix, files)
-    (output / names[2]).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    write_zip(output / names[3], runtime_prefix, runtime_files)
-    (output / names[4]).write_text(json.dumps(runtime_manifest, indent=2) + "\n", encoding="utf-8")
-    (output / names[5]).write_text("".join(
-        hashlib.sha256((output / name).read_bytes()).hexdigest() + "  " + name + "\n"
-        for name in names[:5]), encoding="utf-8")
+    write_zip(output / names[0], runtime_prefix, runtime_files)
+    (output / names[1]).write_text(
+        hashlib.sha256((output / names[0]).read_bytes()).hexdigest() + "  " + names[0] + "\n",
+        encoding="utf-8")
+    # Return inventories to the caller for local verification, not as user assets.
+    manifest["runtime"] = runtime_manifest
     return manifest
 
 

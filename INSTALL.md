@@ -17,7 +17,7 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
 - Establish the absolute project directory from the current task. Use that
   directory for initialization and jobs; the plugin checkout is not the user's
   project. If the intended project cannot be determined, ask for it.
-- This **0.4.0** guide targets macOS and Windows 11 **23H2+ x64**,
+- This **0.4.1** guide targets macOS and Windows 11 **23H2+ x64**,
   PowerShell and native Python **3.10+ x64**. Check OS build/architecture,
   Python, Git and `codex plugin --help`. WSL or a Windows Server CI pass does
   not establish Windows 11 acceptance. Linux is not a release target.
@@ -26,10 +26,9 @@ single `SKILL.md` by itself: the skills depend on the bundled Python runner.
   and [official Antigravity installation guide](https://antigravity.google/docs/cli/install).
   Inspect local command availability first. Do not change execution policy,
   switch to WSL, request administrator rights, or enable Full Access automatically.
-  The 23H2 lab has native offline and Codex-controlled read/resume evidence,
-  plus real agy file creation/editing and response-time cancellation/deadline
-  cleanup. Check exact-commit release validation; first-time official Windows
-  login remains unproven. See the
+  Native 23H2 checks cover offline behavior, Codex-controlled read/resume,
+  agy project writes, cancellation/deadline cleanup, and official agy login.
+  See [validation](docs/VALIDATION.md) for the source versions tested and the
   bundled [platform reference](plugins/gemini-subagent/references/platforms.md).
   Named agy accounts require the pinned native contract; Windows shared reads fail closed.
 - Inspect available official `agy` and optional `gemini` executables and the user's
@@ -49,23 +48,21 @@ The public marketplace is `gemini-subagent-public`; the plugin is
 `gemini-subagent`:
 
 ```bash
-codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.0 --json
+codex plugin marketplace add Liii8888/codex-gemini-subagent --ref v0.4.1 --sparse .agents/plugins --sparse plugins/gemini-subagent --json
 codex plugin add gemini-subagent@gemini-subagent-public --json
 codex plugin list --marketplace gemini-subagent-public --json
 ```
 
-To limit the Git marketplace checkout, append `--sparse .agents/plugins
---sparse plugins/gemini-subagent` to `marketplace add`. These are native Codex
-options; do not edit the installed cache or introduce an install hook to delete
-files. Git still retains some root files and metadata.
+The native `--sparse` options limit the Git checkout. Git still retains some root
+files and metadata. Do not edit the installed cache or add a cleanup install hook.
 
 **Lean packaging:** tests and development tooling stay outside the
 installable plugin. The release includes a `*-plugin.zip` containing only a local marketplace, install guidance,
-and the universal plugin. Verify it against `SHA256SUMS` and
-`plugin-manifest.json`, extract it into a retained directory, then use
+and the universal plugin. Verify its SHA-256 against `SHA256SUMS`, extract it
+into a retained directory, then use
 `codex plugin marketplace add <extracted-directory> --json` followed by the
-same `plugin add` command. The existing published `v0.4.0-alpha.1` package
-has not been replaced. See [packaging boundaries](docs/RELEASING.md#install-payload).
+same `plugin add` command. Releases contain only this ZIP and its checksum;
+source remains available from Git. See [packaging boundaries](docs/RELEASING.md#install-payload).
 
 Read the command results. Verify the plugin is installed and enabled at the
 expected release version. These commands require the tag to be published;
