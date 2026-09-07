@@ -1,7 +1,7 @@
 {
   "name": "gemini-subagent",
-  "version": "0.3.0",
-  "description": "Managed Gemini CLI and Antigravity workers for Codex.",
+  "version": "0.4.0",
+  "description": "Managed official Antigravity and optional Gemini CLI workers for macOS and native Windows.",
   "author": {
     "name": "Liii8888",
     "url": "https://github.com/Liii8888"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Gemini Subagent",
     "shortDescription": "Run controlled Google CLI workers from Codex",
-    "longDescription": "Delegate work to official Gemini or Antigravity CLIs while Codex controls accounts, quota checks, concurrency, status, cancellation, native session continuation, durable results, and verification.",
+    "longDescription": "Delegate work to official Antigravity or optional Gemini CLI workers with managed lifecycle and durable results. One lean plugin shares five skills across macOS and Windows 11 23H2+ x64. Windows evidence covers ordinary-user single-account agy CLI tasks; review version-bound validation for exact results. Named agy profiles use OS credential storage and a pinned provider contract. Windows shared reads and desktop App integration remain unavailable.",
     "developerName": "Liii8888",
     "category": "Coding",
     "capabilities": [

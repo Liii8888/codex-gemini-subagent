@@ -13,11 +13,12 @@ import contextlib
 import ctypes
 import datetime as dt
 import errno
-import fcntl
+import platform_fs as fcntl
 import hashlib
 import json
 import os
-import pwd
+if os.name != "nt":
+    import pwd
 import queue
 import re
 import selectors
@@ -37,6 +38,7 @@ from account_schema import (
     AccountSchemaError,
     DECLARED_IDENTITY_SOURCE,
     KEYCHAIN_PROFILE_MODE,
+    WINDOWS_PROFILE_MODE,
     UNMANAGED_AGY_PROFILE_MODE,
     find_account_by_id,
     migrate_accounts_state,
@@ -70,9 +72,21 @@ from quota_policy import (
     parse_agy_usage,
 )
 from runtime_paths import canonical_auth_runtime_root, default_runtime_root
+from platform_fs import (
+    IS_WINDOWS, current_user_id, real_user_home, user_local_data,
+    private_mkdir, secure_chmod, file_is_private, current_user_owns,
+)
+import platform_process
+import windows_agy_contract
+from windows_credentials import WindowsCredentialError
+from platform_process import (
+    current_group, KILL_SIGNAL, popen as managed_popen, run as managed_run,
+    call as managed_call,
+    pipe_selector, read_pipe, set_pipe_nonblocking, signal_member,
+)
 
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 SCRIPT_PATH = Path(__file__).resolve()
 TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 ACTIVE_STATES = {"queued", "running", "cancelling", "recovery_required"}
@@ -111,7 +125,7 @@ AUTH_OVERRIDE_ENV = {
     "GEMINI_API_BASE_URL",
     "GEMINI_CLI_HOME",
 }
-AGY_CREDENTIAL_DOMAIN = "agy-macos-system-keychain"
+AGY_CREDENTIAL_DOMAIN = ("agy-windows-credential-manager" if IS_WINDOWS else "agy-macos-system-keychain")
 _BOOTSTRAPPED_ROOTS: set[Path] = set()
 _PROC_PIDTBSDINFO = 3
 _PROC_PGRP_ONLY = 2
@@ -221,6 +235,11 @@ def _validate_runtime_root(path: Path) -> None:
         (Path.home() / ".local").resolve(),
         (Path.home() / ".local" / "state").resolve(),
     }
+    if IS_WINDOWS:
+        forbidden.update({Path(path.anchor), real_user_home(), user_local_data(),
+                          user_local_data() / "Gemini-Subagent"})
+        if str(path).startswith("\\\\"):
+            raise BridgeError("Windows runtime data must use a local drive.")
     if path in forbidden:
         raise BridgeError(f"Refusing unsafe runtime root: {path}")
 
@@ -248,6 +267,10 @@ def _find_default_binary(provider: str) -> str:
     override = _environment_value(env_name, legacy_name)
     if override:
         return str(Path(override).expanduser().resolve())
+    if provider == "agy" and IS_WINDOWS:
+        native = user_local_data() / "agy/bin/agy.exe"
+        if native.is_file():
+            return str(native.resolve())
     if provider == "agy":
         managed = Path.home() / "Agent" / "Workspace-System" / "bin" / "agy"
         if managed.is_file():
@@ -322,11 +345,11 @@ def _default_accounts() -> dict[str, Any]:
 def ensure_runtime() -> Path:
     root = runtime_root()
     _migrate_legacy_runtime(root)
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    private_mkdir(root)
     for child in ("jobs", "profiles"):
-        (root / child).mkdir(exist_ok=True, mode=0o700)
+        private_mkdir(root / child)
     with contextlib.suppress(PermissionError):
-        root.chmod(0o700)
+        secure_chmod(root, 0o700)
 
     config_path = root / "config.json"
     if not config_path.exists():
@@ -342,7 +365,7 @@ def ensure_runtime() -> Path:
 
 
 def atomic_write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    private_mkdir(path.parent)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     tmp_path = Path(tmp_name)
     try:
@@ -351,15 +374,15 @@ def atomic_write_json(path: Path, data: Any) -> None:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, path)
+        secure_chmod(tmp_path, 0o600)
+        fcntl.atomic_replace(tmp_path, path)
     finally:
         with contextlib.suppress(FileNotFoundError):
             tmp_path.unlink()
 
 
 def atomic_write_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    private_mkdir(path.parent)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     tmp_path = Path(tmp_name)
     try:
@@ -367,8 +390,8 @@ def atomic_write_text(path: Path, text: str) -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, path)
+        secure_chmod(tmp_path, 0o600)
+        fcntl.atomic_replace(tmp_path, path)
     finally:
         with contextlib.suppress(FileNotFoundError):
             tmp_path.unlink()
@@ -391,7 +414,7 @@ def _legacy_worker_identity_is_live(record: dict[str, Any]) -> bool:
     if not process_alive(pid):
         return False
     try:
-        actual_pgid = os.getpgid(pid)
+        actual_pgid = (platform_process.identity(pid) or {}).get("pgid") if IS_WINDOWS else os.getpgid(pid)
     except ProcessLookupError:
         return False
     expected_pgid = record.get("worker_pgid")
@@ -454,13 +477,22 @@ def _migrate_legacy_runtime(root: Path) -> None:
 
 
 def read_json(path: Path, default: Any = None) -> Any:
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except FileNotFoundError:
-        return default
-    except json.JSONDecodeError as exc:
-        raise BridgeError(f"State file is not valid JSON: {path}: {exc}") from exc
+    deadline = time.monotonic() + 0.5 if IS_WINDOWS else 0.0
+    while True:
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except FileNotFoundError:
+            return default
+        except PermissionError:
+            # Windows CRT opens can report a sharing/delete-pending race as
+            # EACCES without winerror. Reobserve briefly; never change ACLs or
+            # turn a persistent denial into a missing/default state.
+            if not IS_WINDOWS or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
+        except json.JSONDecodeError as exc:
+            raise BridgeError(f"State file is not valid JSON: {path}: {exc}") from exc
 
 
 def _migrate_runtime_schema(root: Path) -> None:
@@ -519,9 +551,9 @@ def canonical_auth_root() -> Path:
     """Return the one per-UID auth domain, independent of runtime overrides."""
 
     root = canonical_auth_runtime_root()
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    private_mkdir(root)
     with contextlib.suppress(PermissionError):
-        root.chmod(0o700)
+        secure_chmod(root, 0o700)
     return root
 
 
@@ -550,7 +582,7 @@ def _sha256_file(path: Path) -> str:
 
 def _macos_build() -> str:
     try:
-        result = subprocess.run(
+        result = managed_run(
             ["/usr/bin/sw_vers", "-buildVersion"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -568,6 +600,8 @@ def shared_read_capability_status(account: dict[str, Any]) -> dict[str, Any]:
     """Validate the exact, user-enabled real-provider probe binding."""
 
     runtime_config = config()
+    if IS_WINDOWS:
+        return {"eligible": False, "reason": "windows_shared_behavior_unverified", "probe": None}
     if (
         runtime_config.get("concurrency_mode") != "same-account-read-shared-v1"
         or runtime_config.get("require_concurrency_probe") is not True
@@ -582,7 +616,7 @@ def shared_read_capability_status(account: dict[str, Any]) -> dict[str, Any]:
         details = path.stat()
         if (
             not stat.S_ISREG(details.st_mode)
-            or details.st_uid != os.getuid()
+            or details.st_uid != current_user_id()
             or details.st_size > 1_000_000
             or details.st_mode & 0o077
         ):
@@ -644,7 +678,7 @@ def _read_private_concurrency_report(path_value: str) -> tuple[Path, dict[str, A
     if (
         not resolved.is_relative_to(canonical_auth_root())
         or not stat.S_ISREG(details.st_mode)
-        or details.st_uid != os.getuid()
+        or details.st_uid != current_user_id()
         or details.st_size <= 0
         or details.st_size > 1_000_000
         or details.st_mode & 0o077
@@ -669,6 +703,8 @@ def _validated_concurrency_capability(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return the current account and a minimal user-enabled capability record."""
 
+    if IS_WINDOWS:
+        raise BridgeError("Windows shared reads require an independently verified provider credential contract and Windows behavioral probe; macOS reports cannot be imported.", 2)
     _resolved_report, report = _read_private_concurrency_report(report_path)
     binding = report.get("binding")
     agy = binding.get("agy") if isinstance(binding, dict) else None
@@ -756,9 +792,9 @@ def provider_leases_root() -> Path:
     """Return the authoritative per-UID directory for managed child leases."""
 
     root = canonical_auth_root() / "provider-leases"
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    private_mkdir(root)
     with contextlib.suppress(PermissionError):
-        root.chmod(0o700)
+        secure_chmod(root, 0o700)
     return root
 
 
@@ -786,7 +822,7 @@ def auth_transition_lock(
     )
     try:
         details = os.fstat(fd)
-        if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid():
+        if not stat.S_ISREG(details.st_mode) or (not file_is_private(path) if IS_WINDOWS else details.st_uid != current_user_id()):
             raise BridgeError("The auth transition lock is not a safe user file.")
         while True:
             try:
@@ -820,7 +856,7 @@ def provider_lifecycle_lock() -> Iterable[None]:
     )
     try:
         details = os.fstat(fd)
-        if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid():
+        if not stat.S_ISREG(details.st_mode) or (not file_is_private(path) if IS_WINDOWS else details.st_uid != current_user_id()):
             raise BridgeError("The provider lifecycle lock is not a safe user file.")
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -915,12 +951,15 @@ def save_auth_slot(
         "dirty": bool(dirty),
         "updated_at": now_iso(),
     }
+    if IS_WINDOWS:
+        payload["windows_context"] = platform_process.current_context()
     atomic_write_json(auth_slot_path(), payload)
     return payload
 
 
 def keychain_store(
     *,
+    account: dict[str, Any] | None = None,
     job_id: str | None = None,
     child: list[subprocess.Popen[Any] | None] | None = None,
     cancelled: threading.Event | None = None,
@@ -969,16 +1008,38 @@ def keychain_store(
         value is not None
         for value in (job_id, child, cancelled, marker_path, overall_deadline)
     )
-    return KeychainProfileStore.macos(
+    options: dict[str, Any] = {}
+    if IS_WINDOWS and account is not None and account_is_keychain_profile(account):
+        require_windows_profile_account(account)
+        options["provider_binary"] = account["binary"]
+    return KeychainProfileStore.native(
         lock_path=auth_lock_path(),
         command_wait_callback=command_wait_callback if controlled else None,
         on_process_start=command_started if controlled else None,
         on_process_stop=command_stopped if controlled else None,
         command_hard_deadline=overall_deadline,
+        **options,
     )
 
 
+def require_windows_profile_account(account: dict[str, Any]) -> None:
+    try:
+        evidence = windows_agy_contract.require_binary(account.get("binary", ""))
+    except WindowsCredentialError as exc:
+        raise BridgeError(str(exc), 2) from None
+    if (
+        account.get("profile_mode") != WINDOWS_PROFILE_MODE
+        or account.get("windows_owner_sid") != evidence["user_sid"]
+        or account.get("windows_credential_contract") != evidence["contract"]
+    ):
+        raise BridgeError("Windows agy profile belongs to a different user or platform contract.", 2)
+
+
 def account_profile_key(account: dict[str, Any]) -> str:
+    if IS_WINDOWS:
+        require_windows_profile_account(account)
+    elif account.get("profile_mode") == WINDOWS_PROFILE_MODE:
+        raise BridgeError("Credential profile activation is unverified on this platform; credentials cannot be migrated between operating systems.")
     account_id = account.get("id")
     try:
         return str(uuid.UUID(str(account_id)))
@@ -989,7 +1050,7 @@ def account_profile_key(account: dict[str, Any]) -> str:
 def account_is_keychain_profile(account: dict[str, Any]) -> bool:
     return (
         account.get("provider") == "agy"
-        and account.get("profile_mode") == KEYCHAIN_PROFILE_MODE
+        and account.get("profile_mode") in {KEYCHAIN_PROFILE_MODE, "windows-credential-manager-vault"}
     )
 
 
@@ -1075,9 +1136,12 @@ def config() -> dict[str, Any]:
     roots = payload.get("allowed_roots")
     if not isinstance(roots, list) or not roots or len(roots) > 16:
         raise BridgeError("allowed_roots must contain 1..16 paths.")
-    forbidden = {Path("/").resolve(), Path.home().resolve()}
+    forbidden = {Path("/").resolve(), Path.home().resolve(), real_user_home().resolve()}
     for item in roots:
-        if not isinstance(item, str) or Path(item).expanduser().resolve() in forbidden:
+        if not isinstance(item, str):
+            raise BridgeError(f"Refusing unsafe allowed root: {item!r}")
+        root = Path(item).expanduser().resolve()
+        if root in forbidden or root == Path(root.anchor):
             raise BridgeError(f"Refusing unsafe allowed root: {item!r}")
     return payload
 
@@ -1091,7 +1155,7 @@ def _validate_account_runtime_paths(state: dict[str, Any]) -> None:
         if account.get("provider") != "gemini":
             continue
         if account.get("profile_mode") == "system":
-            real_home = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+            real_home = real_user_home().resolve()
             root = (real_home / ".gemini").resolve()
         else:
             raw_root = account.get("profile_root")
@@ -1174,6 +1238,8 @@ def all_jobs() -> list[dict[str, Any]]:
 
 
 def process_alive(pid: Any) -> bool:
+    if IS_WINDOWS:
+        return platform_process.alive(pid)
     if not isinstance(pid, int) or pid <= 1:
         return False
     if _LIBPROC is not None:
@@ -1195,7 +1261,9 @@ def process_alive(pid: Any) -> bool:
 def process_group_alive(pgid: Any) -> bool:
     """Return whether any process still belongs to a managed process group."""
 
-    if not isinstance(pgid, int) or pgid <= 1 or pgid == os.getpgrp():
+    if IS_WINDOWS:
+        return bool(isinstance(pgid, int) and pgid > 1 and platform_process.group_alive(pgid))
+    if not isinstance(pgid, int) or pgid <= 1 or pgid == current_group():
         return False
     try:
         os.killpg(pgid, 0)
@@ -1237,8 +1305,11 @@ def process_group_alive(pgid: Any) -> bool:
 
 
 def process_command(pid: int) -> str:
+    if IS_WINDOWS:
+        # Identity comes from retained OS process handles, never command text.
+        return ""
     try:
-        result = subprocess.run(
+        result = managed_run(
             ["ps", "-p", str(pid), "-o", "command="],
             text=True,
             stdout=subprocess.PIPE,
@@ -1297,6 +1368,8 @@ def process_identity(pid: int) -> dict[str, Any] | None:
 
     if not isinstance(pid, int) or pid <= 1:
         return None
+    if IS_WINDOWS:
+        return platform_process.identity(pid)
     if _LIBPROC is not None:
         _state, identity = _darwin_process_identity(pid)
         return identity
@@ -1305,7 +1378,7 @@ def process_identity(pid: int) -> dict[str, Any] | None:
     # libproc's microsecond birth token; this path never upgrades a weak token
     # into a trusted signal decision.
     try:
-        result = subprocess.run(
+        result = managed_run(
             ["ps", "-p", str(pid), "-o", "pgid=", "-o", "uid=", "-o", "lstart="],
             text=True,
             stdout=subprocess.PIPE,
@@ -1365,12 +1438,16 @@ def _worker_identity_owned(
     """Authorize a worker signal using its nonce *and* Darwin birth identity."""
 
     pid = job.get("worker_pid")
+    if IS_WINDOWS and not platform_process.same_context(
+        job.get("windows_context"), platform_process.current_context()
+    ):
+        return False
     if not isinstance(pid, int) or pid <= 1:
         return False
     identity = process_identity(pid)
     if identity is None:
         return False
-    if identity.get("pgid") != pid or identity.get("uid") != os.getuid():
+    if identity.get("pgid") != pid or identity.get("uid") != current_user_id():
         return False
     if job.get("worker_pgid") not in (None, pid):
         return False
@@ -1404,6 +1481,11 @@ def _worker_identity_owned(
 def process_group_members(pgid: int) -> set[int] | None:
     """Return exact Darwin PGID membership, or ``None`` when unavailable."""
 
+    if IS_WINDOWS:
+        try:
+            return platform_process.group_members(pgid)
+        except OSError:
+            return None
     if _LIBPROC is None or not isinstance(pgid, int) or pgid <= 1:
         return None
     needed = _LIBPROC.proc_listpids(_PROC_PGRP_ONLY, pgid, None, 0)
@@ -1465,11 +1547,13 @@ def _provider_lease_file(job: dict[str, Any]) -> Path:
 
 def load_provider_lease(job: dict[str, Any]) -> dict[str, Any] | None:
     path = _provider_lease_file(job)
-    if not path.is_file():
+    missing = object()
+    record = read_json(path, missing)
+    if record is missing:
         return None
-    record = read_json(path, {})
     if not isinstance(record, dict) or record.get("version") != 1:
         raise BridgeError("Unsafe provider lease metadata.")
+    require_windows_context(record)
     if record.get("job_id") != job.get("job_id"):
         raise BridgeError("Provider lease belongs to a different job.")
     if record.get("worker_nonce") != job.get("worker_nonce"):
@@ -1491,14 +1575,16 @@ def load_provider_lease(job: dict[str, Any]) -> dict[str, Any] | None:
         or not isinstance(pid, int)
         or pid <= 1
         or pgid != pid
-        or pgid == os.getpgrp()
+        or pgid == current_group()
     ):
         raise BridgeError("Provider lease has an unsafe process group.")
     if not isinstance(record.get("pid_start_identity"), str) or not record[
         "pid_start_identity"
     ]:
         raise BridgeError("Provider lease has no process start identity.")
-    for field in ("uid", "pid_start_sec", "pid_start_usec"):
+    if IS_WINDOWS and record.get("uid") != current_user_id():
+        raise BridgeError("Provider lease uses a different Windows user SID.")
+    for field in (("pid_start_sec", "pid_start_usec") if IS_WINDOWS else ("uid", "pid_start_sec", "pid_start_usec")):
         value = record.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise BridgeError(f"Provider lease has an unsafe {field} value.")
@@ -1552,7 +1638,7 @@ def publish_provider_lease(
     start_identity = process_start_identity(proc.pid)
     if not start_identity:
         raise BridgeError("Could not establish the provider supervisor birth token.")
-    if identity.get("pgid") != proc.pid or identity.get("uid") != os.getuid():
+    if identity.get("pgid") != proc.pid or identity.get("uid") != current_user_id():
         raise BridgeError("Provider supervisor did not establish an isolated process group.")
     record = {
         "version": 1,
@@ -1564,7 +1650,7 @@ def publish_provider_lease(
         "credential_revision": int(job.get("credential_revision", 0)),
         "pid": proc.pid,
         "pgid": proc.pid,
-        "uid": os.getuid(),
+        "uid": current_user_id(),
         "pid_start_identity": start_identity,
         "pid_start_sec": int(identity.get("start_sec", 0)),
         "pid_start_usec": int(identity.get("start_usec", 0)),
@@ -1576,6 +1662,9 @@ def publish_provider_lease(
         "state": "published",
         "created_at": now_iso(),
     }
+    if IS_WINDOWS:
+        record["windows_context"] = identity.get("windows_context")
+        require_windows_context(record)
     with provider_lifecycle_lock():
         path = _provider_lease_file(job)
         if path.exists():
@@ -1590,6 +1679,21 @@ def publish_provider_lease(
 def _provider_lease_identity(record: dict[str, Any]) -> str:
     """Return ``owned``, ``stopped``, ``reused``, or ``unknown``."""
 
+    if IS_WINDOWS and not platform_process.same_context(
+        record.get("windows_context"), platform_process.current_context()
+    ):
+        return "unknown"
+    deadline = time.monotonic() + 0.5
+    while True:
+        result = _provider_lease_identity_once(record)
+        if result != "unknown" or time.monotonic() >= deadline:
+            return result
+        # Cancellation, worker cleanup and orphan recovery can race. Wait only
+        # for fresh OS evidence; a missing identity never authorizes a signal.
+        time.sleep(0.02)
+
+
+def _provider_lease_identity_once(record: dict[str, Any]) -> str:
     pid = int(record["pid"])
     pgid = int(record["pgid"])
     if not process_group_alive(pgid):
@@ -1598,7 +1702,9 @@ def _provider_lease_identity(record: dict[str, Any]) -> str:
         # The non-exec guardian is required to outlive every descendant.  A
         # missing leader with a live numeric PGID is therefore ambiguous and
         # may be a later group reuse; never authorize a signal from the PGID.
-        return "unknown"
+        # The group may also have exited after the first group probe. An
+        # absent leader alone proves nothing; a second empty group does.
+        return "stopped" if not process_group_alive(pgid) else "unknown"
     identity = process_identity(pid)
     if identity is None:
         return "stopped" if not process_group_alive(pgid) else "unknown"
@@ -1628,7 +1734,10 @@ def _provider_lease_identity(record: dict[str, Any]) -> str:
         and "_provider_gate" in command
         and str(record["lease_id"]) in command
     ):
-        return "reused"
+        # Command lookup is a later OS observation than the birth-token check.
+        # A retiring Darwin process can already report <defunct>. Only a fresh
+        # empty group permits completion; a live mismatch still rejects signals.
+        return "stopped" if not process_group_alive(pgid) else "reused"
     return "owned"
 
 
@@ -1681,12 +1790,12 @@ def terminate_provider_lease_group(
         )
     pgid = int(record["pgid"])
     if identity == "owned":
-        signal_managed_group(pgid, signal.SIGTERM)
+        signal_managed_group(pgid, signal.SIGTERM, expected_start=record["pid_start_identity"])
         deadline = time.monotonic() + grace_seconds
         while process_group_alive(pgid) and time.monotonic() < deadline:
             time.sleep(0.05)
         if process_group_alive(pgid):
-            signal_managed_group(pgid, signal.SIGKILL)
+            signal_managed_group(pgid, KILL_SIGNAL, expected_start=record["pid_start_identity"])
             deadline = time.monotonic() + 2.0
             while process_group_alive(pgid) and time.monotonic() < deadline:
                 time.sleep(0.05)
@@ -1704,7 +1813,7 @@ def recover_provider_lease(job: dict[str, Any]) -> bool:
         return recover_shared_provider_epoch(job)
     terminate_provider_lease_group(job, record)
     if job.get("provider") == "agy" and job.get("account_id"):
-        store = keychain_store()
+        store = keychain_store(account=account_by_id(str(job["account_id"])))
         with store.lease() as auth_lease:
             reconcile_auth_slot(auth_lease)
     _remove_provider_lease(job, record)
@@ -1774,7 +1883,7 @@ def recover_shared_provider_epoch(job: dict[str, Any]) -> bool:
         account = account_by_id(pin[0])
         if int(account.get("credential_revision", -1)) != pin[1]:
             raise BridgeError("Shared auth recovery encountered a new credential revision.")
-        store = keychain_store()
+        store = keychain_store(account=account)
         with store.lease() as auth_lease:
             # Re-read after SH drain.  A guardian that was stopping above may
             # have published its final provider-absent transition meanwhile.
@@ -1997,11 +2106,22 @@ def exclusive_auth_lease(
             yield lease
 
 
+def require_windows_context(record: dict[str, Any]) -> None:
+    if IS_WINDOWS and not platform_process.same_context(
+        record.get("windows_context"), platform_process.current_context()
+    ):
+        raise BridgeError(
+            "Windows execution context is missing or differs from this logon session; "
+            "use the original user session. No process or reservation was cleared.", 2
+        )
+
+
 def reconcile_job(job: dict[str, Any]) -> dict[str, Any]:
     lease_path = _provider_lease_file(job)
     has_provider_lease = lease_path.is_file()
     if job.get("state") not in ACTIVE_STATES and not has_provider_lease:
         return job
+    require_windows_context(job)
     pid = job.get("worker_pid")
     created = parse_iso(job.get("worker_started_at") or job.get("created_at"))
     age = (
@@ -2179,14 +2299,19 @@ def account_environment(account: dict[str, Any]) -> dict[str, str]:
     env = os.environ.copy()
     for name in AUTH_OVERRIDE_ENV:
         env.pop(name, None)
+    if IS_WINDOWS:
+        home = real_user_home().resolve()
+        env["HOME"] = env["USERPROFILE"] = str(home)
+        env["HOMEDRIVE"], env["HOMEPATH"] = os.path.splitdrive(str(home))
+        env["LOCALAPPDATA"] = str(user_local_data())
     if account.get("provider") == "gemini":
-        real_home = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+        real_home = real_user_home().resolve()
         env["HOME"] = str(real_home)
         if account.get("profile_mode") == "isolated":
             profile_root = account.get("profile_root")
             if not profile_root:
                 raise BridgeError(f"Account {account['name']} has no profile_root")
-            Path(profile_root).mkdir(parents=True, exist_ok=True, mode=0o700)
+            private_mkdir(Path(profile_root))
             env["GEMINI_CLI_HOME"] = str(Path(profile_root).resolve())
         else:
             # Pin the system profile to the real passwd home.  An inherited
@@ -2226,6 +2351,13 @@ def account_ready_for_jobs(account: dict[str, Any]) -> bool:
     if not account.get("enabled", True) or not binary_exists(account.get("binary", "")):
         return False
     if account_is_keychain_profile(account):
+        if IS_WINDOWS:
+            try:
+                require_windows_profile_account(account)
+            except BridgeError:
+                return False
+        elif account.get("profile_mode") != KEYCHAIN_PROFILE_MODE:
+            return False
         return bool(
             account.get("credential_state") == "ready"
             and account.get("readiness_verified_revision")
@@ -2354,7 +2486,7 @@ def read_prompt(args: argparse.Namespace) -> tuple[str, str | None]:
     return value, None
 
 
-def managed_prompt(task: str, mode: str, cwd: Path) -> str:
+def managed_prompt(task: str, mode: str, cwd: Path, *, provider: str | None = None) -> str:
     if mode == "read":
         permissions = (
             "READ-INTENT MODE: the provider is launched with its public plan and sandbox controls. "
@@ -2366,6 +2498,14 @@ def managed_prompt(task: str, mode: str, cwd: Path) -> str:
             "WRITE MODE: you may edit files only inside the stated working directory when needed "
             "for the task. Do not commit, push, publish, alter authentication, or delete unrelated data."
         )
+        if IS_WINDOWS and provider == "agy":
+            permissions += (
+                " Ordinary project files are not Antigravity artifacts. When creating a project "
+                "file with write_to_file, explicitly set IsArtifact=false if the installed tool "
+                "schema exposes that parameter. Do not invent unsupported parameters or redirect "
+                "the requested file into the provider's artifact directory. Read back the actual "
+                "target to verify a write; a completed provider turn alone is not proof of success."
+            )
     return f"""You are a managed Gemini Subagent worker called by Codex.
 
 Working directory: {cwd}
@@ -2530,9 +2670,9 @@ def reserve_job(args: argparse.Namespace) -> dict[str, Any]:
 
     job_id = new_job_id()
     directory = job_dir(job_id)
-    directory.mkdir(parents=True, mode=0o700)
+    private_mkdir(directory)
     prompt_path = directory / "prompt.txt"
-    atomic_write_text(prompt_path, managed_prompt(task, mode, cwd))
+    atomic_write_text(prompt_path, managed_prompt(task, mode, cwd, provider=provider))
 
     job: dict[str, Any] = {
         "version": 2,
@@ -2574,6 +2714,9 @@ def reserve_job(args: argparse.Namespace) -> dict[str, Any]:
         "result_json_path": str(directory / "result.json"),
         "provider_lease_path": str(provider_lease_path(job_id)),
     }
+    if IS_WINDOWS:
+        job["windows_context"] = platform_process.current_context()
+        require_windows_context(job)
     if provider == "agy":
         job["conversation_id"] = resume_session
     else:
@@ -2724,7 +2867,7 @@ def spawn_worker(job: dict[str, Any]) -> dict[str, Any]:
     ready_read_fd, ready_write_fd = os.pipe()
     proc: subprocess.Popen[str] | None = None
     try:
-        proc = subprocess.Popen(
+        proc = managed_popen(
             [
                 sys.executable,
                 str(SCRIPT_PATH),
@@ -2748,12 +2891,12 @@ def spawn_worker(job: dict[str, Any]) -> dict[str, Any]:
         gate_read_fd = -1
         os.close(ready_write_fd)
         ready_write_fd = -1
-        os.set_blocking(ready_read_fd, False)
+        set_pipe_nonblocking(ready_read_fd, False)
         ready_deadline = time.monotonic() + 2.0
         ready_token = b""
         while not ready_token and time.monotonic() < ready_deadline:
             try:
-                ready_token = os.read(ready_read_fd, 1)
+                ready_token = read_pipe(ready_read_fd, 1)
             except BlockingIOError:
                 if proc.poll() is not None:
                     break
@@ -2765,6 +2908,8 @@ def spawn_worker(job: dict[str, Any]) -> dict[str, Any]:
         worker_identity = process_identity(proc.pid)
         if worker_identity is None or worker_identity.get("pgid") != proc.pid:
             raise BridgeError("Could not establish the isolated worker process identity.")
+        if IS_WINDOWS:
+            require_windows_context(worker_identity)
         published = patch_job(
             job["job_id"],
             {
@@ -2783,6 +2928,7 @@ def spawn_worker(job: dict[str, Any]) -> dict[str, Any]:
             },
         )
         os.write(gate_write_fd, b"1")
+        platform_process.release_detached(proc)
         return published
     except Exception:
         # A child cannot load or execute its job until the one-byte gate is
@@ -2818,6 +2964,9 @@ def build_provider_command(job: dict[str, Any], account: dict[str, Any]) -> tupl
         raise BridgeError(f"CLI binary is missing or not executable: {binary}")
     if job["provider"] == "agy":
         command = [binary]
+        if IS_WINDOWS:
+            # Explicitly register only the workspace already admitted by the runner.
+            command += ["--add-dir", job["cwd"]]
         if job.get("conversation_id"):
             command += ["--conversation", job["conversation_id"]]
         if job.get("model"):
@@ -3088,6 +3237,7 @@ def recover_login_transaction(lease: Any) -> dict[str, Any] | None:
     if record is None:
         return None
 
+    require_windows_context(record)
     target = _login_journal_target(record)
     target_key = account_profile_key(target)
     recovery_key = str(record["recovery_profile_uuid"])
@@ -3164,6 +3314,7 @@ def reconcile_auth_slot(lease: Any) -> dict[str, Any] | None:
         raise BridgeError("The active auth slot uses an obsolete credential revision.")
     key = account_profile_key(account)
     if slot.get("dirty"):
+        require_windows_context(slot)
         lease.capture(key, overwrite=True)
         save_auth_slot(account, dirty=False)
         return account
@@ -3215,6 +3366,7 @@ def sync_account_under_lease(
     if not account_is_keychain_profile(account):
         return
     slot = load_auth_slot()
+    require_windows_context(slot)
     if slot.get("active_account_id") != account.get("id"):
         raise BridgeError("Refusing to sync a credential into the wrong Keychain profile.")
     if int(slot.get("credential_revision") or -1) != int(
@@ -3627,9 +3779,27 @@ def set_account_outcome(
         save_accounts(state)
 
 
-def signal_managed_group(pgid: int, sig: signal.Signals) -> None:
-    if pgid <= 1 or pgid == os.getpgrp():
+def signal_managed_group(
+    pgid: int, sig: signal.Signals, *, expected_start: str | None = None
+) -> None:
+    if pgid <= 1 or pgid == current_group():
         raise BridgeError("Refusing to signal an invalid or controller-owned process group.")
+    if IS_WINDOWS:
+        platform_process.terminate_group(pgid, expected_start=expected_start)
+        return
+    if expected_start is not None:
+        identity = process_identity(pgid)
+        if identity is None and expected_start:
+            deadline = time.monotonic() + 0.5
+            while process_group_alive(pgid):
+                if time.monotonic() >= deadline:
+                    raise BridgeError("Process group birth identity is unavailable; refusing to signal it.")
+                time.sleep(0.02)
+            return
+        if (not expected_start or _identity_start_token(identity) != expected_start
+                or (identity or {}).get("pgid") != pgid
+                or (identity or {}).get("uid") != current_user_id()):
+            raise BridgeError("Process group birth identity changed; refusing to signal it.")
     try:
         os.killpg(pgid, sig)
     except ProcessLookupError:
@@ -3650,7 +3820,10 @@ def signal_provider_group(proc: subprocess.Popen[Any], sig: signal.Signals) -> N
     signal_managed_group(proc.pid, sig)
     if proc.poll() is None and not process_group_alive(proc.pid):
         with contextlib.suppress(ProcessLookupError):
-            os.kill(proc.pid, sig)
+            if IS_WINDOWS:
+                proc.kill()
+            else:
+                os.kill(proc.pid, sig)
 
 
 def terminate_provider(proc: subprocess.Popen[Any], grace_seconds: float = 3.0) -> bool:
@@ -3665,7 +3838,7 @@ def terminate_provider(proc: subprocess.Popen[Any], grace_seconds: float = 3.0) 
             return True
         time.sleep(0.05)
     if proc.poll() is None or process_group_alive(pgid):
-        signal_provider_group(proc, signal.SIGKILL)
+        signal_provider_group(proc, KILL_SIGNAL)
         try:
             proc.wait(timeout=2)
         except subprocess.TimeoutExpired:
@@ -3803,6 +3976,11 @@ def run_provider_attempt(
     overall_deadline: float,
     lease_fd: int | None,
 ) -> tuple[dict[str, Any], StreamSummary]:
+    if IS_WINDOWS:
+        # Windows lock ownership remains in the worker; its enclosing Job
+        # retires provider descendants on worker death. Only pipe gates cross
+        # the process boundary, never a supposed inherited byte-range lock.
+        lease_fd = None
     if not job.get("worker_nonce"):
         marker = read_json(marker_path, {}) if marker_path.is_file() else {}
         nonce = marker.get("nonce") or uuid.uuid4().hex
@@ -3831,7 +4009,7 @@ def run_provider_attempt(
             "state": "running",
             "started_at": job["started_at"],
             "worker_pid": os.getpid(),
-            "worker_pgid": os.getpgrp(),
+            "worker_pgid": current_group(),
             "command": redacted,
             "current_action": f"Launching official CLI (attempt {attempt_index + 1})",
         },
@@ -3913,7 +4091,7 @@ def run_provider_attempt(
             inherited_fds = [gate_read_fd, ready_write_fd]
             if lease_fd is not None:
                 inherited_fds.append(lease_fd)
-            proc = subprocess.Popen(
+            proc = managed_popen(
                 supervisor_command,
                 cwd=job["cwd"],
                 env=account_environment(account),
@@ -3930,7 +4108,7 @@ def run_provider_attempt(
             os.close(ready_write_fd)
             ready_write_fd = -1
             child[0] = proc
-            os.set_blocking(ready_read_fd, False)
+            set_pipe_nonblocking(ready_read_fd, False)
             ready_deadline = min(overall_deadline, time.monotonic() + 2.0)
             ready_token = b""
             while not ready_token and time.monotonic() < ready_deadline:
@@ -3941,7 +4119,7 @@ def run_provider_attempt(
                     action="starting the provider supervisor",
                 )
                 try:
-                    ready_token = os.read(ready_read_fd, 1)
+                    ready_token = read_pipe(ready_read_fd, 1)
                 except BlockingIOError:
                     if proc.poll() is not None:
                         break
@@ -3976,10 +4154,10 @@ def run_provider_attempt(
             os.write(gate_write_fd, b"1")
             os.close(gate_write_fd)
             gate_write_fd = -1
-            selector = selectors.DefaultSelector()
+            selector = pipe_selector()
             assert proc.stdout is not None
             stdout_fd = proc.stdout.fileno()
-            os.set_blocking(stdout_fd, False)
+            set_pipe_nonblocking(stdout_fd, False)
             selector.register(stdout_fd, selectors.EVENT_READ)
             stdout_eof = False
             while True:
@@ -4001,7 +4179,7 @@ def run_provider_attempt(
                 events = selector.select(timeout=0.4)
                 for _key, _mask in events:
                     try:
-                        chunk = os.read(stdout_fd, 65536)
+                        chunk = read_pipe(stdout_fd, 65536)
                     except BlockingIOError:
                         continue
                     if chunk:
@@ -4013,7 +4191,7 @@ def run_provider_attempt(
                 if proc.poll() is not None and not stdout_eof:
                     while True:
                         try:
-                            chunk = os.read(stdout_fd, 65536)
+                            chunk = read_pipe(stdout_fd, 65536)
                         except BlockingIOError:
                             break
                         if not chunk:
@@ -4151,7 +4329,7 @@ def provider_gate_main(
         requested_signal.append(signum)
         if child is not None and child.poll() is None:
             with contextlib.suppress(ProcessLookupError, PermissionError):
-                os.kill(child.pid, signum)
+                signal_member(child.pid, signum)
 
     signal.signal(signal.SIGTERM, hold_guardian)
     signal.signal(signal.SIGINT, hold_guardian)
@@ -4168,7 +4346,7 @@ def provider_gate_main(
                 os.close(launch_gate_fd)
         if token != b"1" or requested_signal:
             return 125
-        child = subprocess.Popen(
+        child = managed_popen(
             command,
             stdin=None,
             stdout=None,
@@ -4178,10 +4356,10 @@ def provider_gate_main(
         )
         if requested_signal and child.poll() is None:
             with contextlib.suppress(ProcessLookupError, PermissionError):
-                os.kill(child.pid, requested_signal[-1])
+                signal_member(child.pid, requested_signal[-1])
         exit_code = int(child.wait())
         supervisor_pid = os.getpid()
-        supervisor_pgid = os.getpgrp()
+        supervisor_pgid = current_group()
 
         def remaining_members() -> set[int] | None:
             members = effective_process_group_members(supervisor_pgid)
@@ -4202,7 +4380,7 @@ def provider_gate_main(
         if remaining:
             for member_pid in remaining:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.kill(member_pid, signal.SIGTERM)
+                    signal_member(member_pid, signal.SIGTERM)
             deadline = time.monotonic() + 1.0
             while remaining and time.monotonic() < deadline:
                 time.sleep(0.05)
@@ -4210,7 +4388,7 @@ def provider_gate_main(
         if remaining:
             for member_pid in remaining:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.kill(member_pid, signal.SIGKILL)
+                    signal_member(member_pid, KILL_SIGNAL)
             deadline = time.monotonic() + 2.0
             while remaining and time.monotonic() < deadline:
                 time.sleep(0.05)
@@ -4222,12 +4400,12 @@ def provider_gate_main(
     finally:
         if child is not None and child.poll() is None:
             with contextlib.suppress(ProcessLookupError, PermissionError):
-                os.kill(child.pid, signal.SIGTERM)
+                signal_member(child.pid, signal.SIGTERM)
             try:
                 child.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.kill(child.pid, signal.SIGKILL)
+                    signal_member(child.pid, KILL_SIGNAL)
                 with contextlib.suppress(subprocess.TimeoutExpired):
                     child.wait(timeout=1)
         if guardian_fd is not None:
@@ -4280,7 +4458,7 @@ def worker_main(
             "job_id": job_id,
             "nonce": job["worker_nonce"],
             "pid": os.getpid(),
-            "pgid": os.getpgrp(),
+            "pgid": current_group(),
             "started_at": now_iso(),
         },
     )
@@ -4340,6 +4518,7 @@ def worker_main(
 
         if job["provider"] == "agy":
             store = keychain_store(
+                account=account,
                 job_id=job_id,
                 child=child,
                 cancelled=cancelled,
@@ -4382,6 +4561,7 @@ def worker_main(
                 # cancellation: the provider group is gone and credential
                 # capture is a bounded recovery step, not new model work.
                 recovery_store = keychain_store(
+                    account=account,
                     marker_path=marker_path,
                     overall_deadline=time.monotonic() + 40.0,
                 )
@@ -4719,13 +4899,27 @@ def human_job(job: dict[str, Any]) -> str:
 
 def wait_for_job(job_id: str, timeout: int | None = None) -> dict[str, Any]:
     deadline = time.monotonic() + timeout if timeout else None
+    exit_deadline = None
     while True:
         job = reconcile_job(load_job(job_id))
         if job.get("state") in TERMINAL_STATES:
-            return job
+            # Windows cannot remove a worker log while that process still
+            # holds it open. Terminal metadata is published just before exit;
+            # a completed --wait must include that final OS teardown.
+            pid = job.get("worker_pid")
+            pending = IS_WINDOWS and process_alive(pid)
+            if pending:
+                require_windows_context(job)
+                identity = process_identity(pid)
+                pending = identity is None or _identity_start_token(identity) == job.get("worker_pid_start_identity")
+            if not pending:
+                return job
+            exit_deadline = exit_deadline or time.monotonic() + 5
+            if time.monotonic() >= exit_deadline:
+                raise BridgeError("Job result is terminal but worker exit is not yet verified.", 3)
         if deadline and time.monotonic() >= deadline:
             raise BridgeError(f"Wait timed out; job is still {job.get('state')}: {job_id}", 3)
-        time.sleep(0.5)
+        time.sleep(0.05 if exit_deadline else 0.5)
 
 
 def emit_result(job: dict[str, Any], as_json: bool) -> int:
@@ -4798,29 +4992,40 @@ def cmd_result(args: argparse.Namespace) -> int:
 
 
 def cmd_cancel(args: argparse.Namespace) -> int:
-    job = reconcile_job(load_job(args.job))
-    if job.get("state") in TERMINAL_STATES:
-        if args.json:
-            print_json(job_summary(job))
-        else:
-            print(f"{job['job_id']} is already {job['state']}.")
-        return 0
-    pid = job.get("worker_pid")
-    if not process_alive(pid):
-        raise BridgeError(f"Worker process is not alive: {job['job_id']}")
-    marker_path = Path(job.get("worker_marker_path", ""))
-    marker = read_json(marker_path, {}) if marker_path.is_file() else {}
-    if not _worker_identity_owned(job, marker, require_fresh_heartbeat=True):
-        raise BridgeError(
-            "Refusing to signal a worker without a matching nonce, birth token, "
-            "executable, process group, and live heartbeat."
-        )
+    admission_deadline = time.monotonic() + 2.5
+    while True:
+        job = reconcile_job(load_job(args.job))
+        if job.get("state") in TERMINAL_STATES:
+            if args.json:
+                print_json(job_summary(job))
+            else:
+                print(f"{job['job_id']} is already {job['state']}.")
+            return 0
+        pid = job.get("worker_pid")
+        marker_path = Path(job.get("worker_marker_path", ""))
+        marker = read_json(marker_path, {}) if marker_path.is_file() else {}
+        if process_alive(pid):
+            if _worker_identity_owned(job, marker, require_fresh_heartbeat=True):
+                break
+            if process_alive(pid):
+                raise BridgeError(
+                    "Refusing to signal a worker without a matching nonce, birth token, "
+                    "executable, process group, and live heartbeat."
+                )
+        # A worker may exit just after reconcile_job's live observation, or
+        # during the guarded pre-lease launch window. Reconcile the fresh job
+        # before deciding; never signal its now-stale numeric PID.
+        if time.monotonic() >= admission_deadline or job.get("state") == "recovery_required":
+            raise BridgeError(f"Worker process is not alive; recovery incomplete: {job['job_id']}")
+        time.sleep(0.05)
     pgid = int(pid)
     patch_job(
         job["job_id"],
         {"state": "cancelling", "cancel_requested": True, "current_action": "Cancellation requested"},
     )
     known_provider_groups: set[int] = set()
+    known_provider_births: dict[int, str] = {}
+    worker_birth = str(job.get("worker_pid_start_identity") or "")
 
     def discover_provider_groups() -> None:
         provider_record = load_provider_lease(load_job(job["job_id"]))
@@ -4831,7 +5036,9 @@ def cmd_cancel(args: argparse.Namespace) -> int:
                     "Refusing to signal a provider whose durable birth identity cannot be verified."
                 )
             if ownership == "owned":
-                known_provider_groups.add(int(provider_record["pgid"]))
+                provider_group = int(provider_record["pgid"])
+                known_provider_groups.add(provider_group)
+                known_provider_births[provider_group] = provider_record["pid_start_identity"]
             # A canonical lease is authoritative.  Never add a different PGID
             # merely because mutable heartbeat metadata names one.
             return
@@ -4851,7 +5058,7 @@ def cmd_cancel(args: argparse.Namespace) -> int:
             and provider_pid == provider_pgid
             and provider_pgid > 1
             and provider_pgid != pgid
-            and provider_pgid != os.getpgrp()
+            and provider_pgid != current_group()
         ):
             return
         if provider_pgid in known_provider_groups:
@@ -4859,13 +5066,17 @@ def cmd_cancel(args: argparse.Namespace) -> int:
             # original descendant keeps this PGID alive, the kernel cannot
             # reuse that numeric group for an unrelated process.
             return
+        if not process_alive(provider_pid):
+            if process_group_alive(provider_pgid):
+                raise BridgeError("Refusing to signal an unleased group without its provider birth identity.")
+            return
         if process_alive(provider_pid):
             identity = process_identity(provider_pid)
             expected_start = str(current_marker.get("provider_pid_start_identity") or "")
             if (
                 identity is None
                 or identity.get("pgid") != provider_pgid
-                or identity.get("uid") != os.getuid()
+                or identity.get("uid") != current_user_id()
                 or not expected_start
                 or _identity_start_token(identity) != expected_start
             ):
@@ -4874,12 +5085,13 @@ def cmd_cancel(args: argparse.Namespace) -> int:
                 )
         if process_group_alive(provider_pgid):
             known_provider_groups.add(provider_pgid)
+            known_provider_births[provider_pgid] = str(current_marker.get("provider_pid_start_identity") or "")
 
     def signal_live_groups(sig: signal.Signals) -> None:
         discover_provider_groups()
         for provider_group in tuple(known_provider_groups):
             if process_group_alive(provider_group):
-                signal_managed_group(provider_group, sig)
+                signal_managed_group(provider_group, sig, expected_start=known_provider_births[provider_group])
             else:
                 known_provider_groups.discard(provider_group)
 
@@ -4887,7 +5099,7 @@ def cmd_cancel(args: argparse.Namespace) -> int:
     # heartbeat.  A provider can be published after cancellation was requested
     # but before the worker observes its durable flag.
     signal_live_groups(signal.SIGTERM)
-    signal_managed_group(pgid, signal.SIGTERM)
+    signal_managed_group(pgid, signal.SIGTERM, expected_start=worker_birth)
     deadline = time.monotonic() + 5
     quiet_since: float | None = None
     while time.monotonic() < deadline:
@@ -4902,15 +5114,15 @@ def cmd_cancel(args: argparse.Namespace) -> int:
             if time.monotonic() - quiet_since >= 0.3:
                 break
         time.sleep(0.05)
-    signal_live_groups(signal.SIGKILL)
+    signal_live_groups(KILL_SIGNAL)
     if process_group_alive(pgid):
-        signal_managed_group(pgid, signal.SIGKILL)
+        signal_managed_group(pgid, KILL_SIGNAL, expected_start=worker_birth)
     kill_deadline = time.monotonic() + 3
     while time.monotonic() < kill_deadline:
         discover_provider_groups()
-        signal_live_groups(signal.SIGKILL)
+        signal_live_groups(KILL_SIGNAL)
         if process_group_alive(pgid):
-            signal_managed_group(pgid, signal.SIGKILL)
+            signal_managed_group(pgid, KILL_SIGNAL, expected_start=worker_birth)
         if not process_group_alive(pgid) and not any(
             process_group_alive(group) for group in known_provider_groups
         ):
@@ -5080,7 +5292,7 @@ def _run_agy_probe_command(
     try:
         check_control("starting")
         launch_command = list(command)
-        inherited_fds: tuple[int, ...] = (lease.lock_fd,)
+        inherited_fds: tuple[int, ...] = () if IS_WINDOWS else (lease.lock_fd,)
         if job_id is not None:
             lease_job = load_job(job_id)
             if not lease_job.get("worker_nonce"):
@@ -5098,13 +5310,12 @@ def _run_agy_probe_command(
                 str(ready_write_fd),
                 "--lease-id",
                 lease_id,
-                "--guardian-fd",
-                str(lease.lock_fd),
-                "--",
-                *command,
             ]
-            inherited_fds = (gate_read_fd, ready_write_fd, lease.lock_fd)
-        proc = subprocess.Popen(
+            if not IS_WINDOWS:
+                launch_command += ["--guardian-fd", str(lease.lock_fd)]
+            launch_command += ["--", *command]
+            inherited_fds = (gate_read_fd, ready_write_fd) + (() if IS_WINDOWS else (lease.lock_fd,))
+        proc = managed_popen(
             launch_command,
             cwd=config().get("allowed_roots", [os.getcwd()])[0],
             env=account_environment(account),
@@ -5125,7 +5336,7 @@ def _run_agy_probe_command(
             child[0] = proc
         check_control("starting")
         if lease_job is not None:
-            os.set_blocking(ready_read_fd, False)
+            set_pipe_nonblocking(ready_read_fd, False)
             ready_deadline = min(
                 overall_deadline if overall_deadline is not None else time.monotonic() + 2,
                 time.monotonic() + 2,
@@ -5134,7 +5345,7 @@ def _run_agy_probe_command(
             while not ready_token and time.monotonic() < ready_deadline:
                 check_control("starting")
                 try:
-                    ready_token = os.read(ready_read_fd, 1)
+                    ready_token = read_pipe(ready_read_fd, 1)
                 except BlockingIOError:
                     if proc.poll() is not None:
                         break
@@ -5367,7 +5578,7 @@ def refresh_quota(account: dict[str, Any], timeout: int = 60) -> dict[str, Any]:
     if account.get("provider") != "agy":
         return _refresh_quota_under_lease(account, None, timeout)
     ensure_exclusive_auth_admission("refresh Antigravity quota")
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "refresh Antigravity quota"
@@ -5453,7 +5664,7 @@ def cmd_quota(args: argparse.Namespace) -> int:
             with exclusive_auth_transition("query quota"):
                 yield None
             return
-        store = keychain_store()
+        store = keychain_store(account=agy_selected[0])
         with exclusive_auth_lease(store, "query quota") as lease:
             yield lease
 
@@ -5580,6 +5791,14 @@ def cmd_account_list(args: argparse.Namespace) -> int:
 
 
 def cmd_account_add(args: argparse.Namespace) -> int:
+    windows_evidence = None
+    if IS_WINDOWS and args.keychain_profile:
+        try:
+            windows_evidence = windows_agy_contract.require_binary(
+                normalize_binary(args.binary or _find_default_binary(args.provider))
+            )
+        except WindowsCredentialError as exc:
+            raise BridgeError(str(exc), 2) from None
     if not ACCOUNT_NAME_RE.fullmatch(args.name):
         raise BridgeError("Account name must use 1-64 letters, digits, dots, underscores, or dashes.", 2)
     if args.provider == "agy" and args.isolated:
@@ -5618,7 +5837,7 @@ def cmd_account_add(args: argparse.Namespace) -> int:
                     "a second label would not isolate another login."
                 )
         profile_mode = (
-            KEYCHAIN_PROFILE_MODE
+            (WINDOWS_PROFILE_MODE if IS_WINDOWS else KEYCHAIN_PROFILE_MODE)
             if args.keychain_profile
             else "isolated" if args.isolated else (
                 UNMANAGED_AGY_PROFILE_MODE if args.provider == "agy" else "system"
@@ -5641,6 +5860,9 @@ def cmd_account_add(args: argparse.Namespace) -> int:
         if args.isolated:
             profile = Path(args.profile_root).expanduser().resolve() if args.profile_root else runtime_root() / "profiles" / args.name
             account["profile_root"] = str(profile)
+        if windows_evidence is not None:
+            account["windows_owner_sid"] = windows_evidence["user_sid"]
+            account["windows_credential_contract"] = windows_evidence["contract"]
         state.setdefault("accounts", {})[args.name] = account
         if args.keychain_profile:
             state.setdefault("routing", {}).setdefault("agy_order", []).append(account["id"])
@@ -5651,13 +5873,15 @@ def cmd_account_add(args: argparse.Namespace) -> int:
             raise BridgeError(f"Invalid account configuration: {exc}") from exc
         _validate_account_runtime_paths(state)
         if args.isolated:
-            profile.mkdir(parents=True, exist_ok=True, mode=0o700)
+            private_mkdir(profile)
         save_accounts(state)
     if args.json:
         print_json(public_account(account, default=False, cooling=False))
     else:
         print(f"Added {args.name} ({args.provider}/{account['profile_mode']}).")
-        if args.isolated or args.keychain_profile:
+        if args.keychain_profile:
+            print(f"Existing login: {SCRIPT_PATH} account import-current {args.name}")
+        elif args.isolated:
             print(f"Next: {SCRIPT_PATH} account login {args.name}")
     return 0
 
@@ -5667,7 +5891,7 @@ def cmd_account_import_current(args: argparse.Namespace) -> int:
     if not account_is_keychain_profile(account):
         raise BridgeError("account import-current requires an Antigravity Keychain profile.")
     ensure_exclusive_auth_admission("import Antigravity credentials")
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "import Antigravity credentials"
@@ -5720,6 +5944,7 @@ def cmd_account_import_current(args: argparse.Namespace) -> int:
                     previous_account_revision=None,
                     recovery_profile_uuid=recovery_key,
                     target_backup_uuid=backup_key,
+                    windows_context=platform_process.current_context() if IS_WINDOWS else None,
                 )
                 write_login_journal(login_transaction_path(), journal)
                 lease.capture(recovery_key)
@@ -5767,7 +5992,7 @@ def cmd_account_activate(args: argparse.Namespace) -> int:
     if not account_is_keychain_profile(account):
         raise BridgeError("account activate requires an Antigravity Keychain profile.")
     ensure_exclusive_auth_admission("activate an Antigravity account")
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "activate an Antigravity account"
@@ -5855,7 +6080,7 @@ def _verify_account_under_lease(
                 operation="Antigravity model discovery",
             )
         else:
-            result = subprocess.run(
+            result = managed_run(
                 command,
                 cwd=config().get("allowed_roots", [os.getcwd()])[0],
                 env=account_environment(account),
@@ -5865,7 +6090,7 @@ def _verify_account_under_lease(
                 text=True,
                 timeout=timeout,
                 check=False,
-                pass_fds=pass_fds,
+                pass_fds=() if IS_WINDOWS else pass_fds,
             )
         return {
             "account": account["name"],
@@ -5991,7 +6216,7 @@ def verify_account(account: dict[str, Any], timeout: int = 30) -> dict[str, Any]
     # not leave an explicitly failed verification schedulable under an older
     # successful result.
     _record_strict_agy_readiness(account, ready=False)
-    store = keychain_store()
+    store = keychain_store(account=account)
     try:
         with exclusive_auth_lease(
             store, "verify an Antigravity account"
@@ -6151,7 +6376,7 @@ def cmd_account_login(args: argparse.Namespace) -> int:
             "in agy for a clean exit. "
             "Gemini Subagent never receives your password or 2FA code."
         )
-        store = keychain_store()
+        store = keychain_store(account=account)
         try:
             with exclusive_auth_lease(
                 store, "log in to an Antigravity account"
@@ -6189,6 +6414,7 @@ def cmd_account_login(args: argparse.Namespace) -> int:
                         ),
                         recovery_profile_uuid=recovery_key,
                         target_backup_uuid=backup_key,
+                        windows_context=platform_process.current_context() if IS_WINDOWS else None,
                     )
                     write_login_journal(login_transaction_path(), journal)
 
@@ -6206,11 +6432,11 @@ def cmd_account_login(args: argparse.Namespace) -> int:
                         target_key,
                         overwrite=target_was_ready,
                     ):
-                        exit_code = subprocess.call(
+                        exit_code = managed_call(
                             [binary],
                             env=account_environment(account),
                             cwd=os.getcwd(),
-                            pass_fds=(lease.lock_fd,),
+                            pass_fds=() if IS_WINDOWS else (lease.lock_fd,),
                         )
                         if exit_code != 0:
                             raise BridgeError(
@@ -6250,7 +6476,8 @@ def cmd_account_login(args: argparse.Namespace) -> int:
             raise
         except (KeychainProfileError, LoginJournalError, OSError) as exc:
             raise BridgeError(f"Antigravity login transaction failed: {exc}") from exc
-        print(f"Captured and activated {account['name']} in macOS Keychain.")
+        store_name = "Windows Credential Manager" if IS_WINDOWS else "macOS Keychain"
+        print(f"Captured and activated {account['name']} in {store_name}.")
         return 0
     if account.get("provider") == "agy":
         reject_unmanaged_agy_with_managed_profiles(account, "log in")
@@ -6262,15 +6489,15 @@ def cmd_account_login(args: argparse.Namespace) -> int:
             "Complete authentication in the official CLI/browser. Gemini Subagent will not read the token."
         )
         try:
-            store = keychain_store()
+            store = keychain_store(account=account)
             with exclusive_auth_lease(
                 store, "log in to an unmanaged Antigravity account"
             ) as lease:
-                return subprocess.call(
+                return managed_call(
                     [binary],
                     env=account_environment(account),
                     cwd=os.getcwd(),
-                    pass_fds=(lease.lock_fd,),
+                    pass_fds=() if IS_WINDOWS else (lease.lock_fd,),
                 )
         except KeychainProfileError as exc:
             raise BridgeError(f"Antigravity login lock failed: {exc}") from exc
@@ -6286,11 +6513,11 @@ def cmd_account_login(args: argparse.Namespace) -> int:
         with exclusive_auth_transition("log in to a Gemini account") as transition_fd:
             account = _begin_gemini_login(account)
             try:
-                exit_code = subprocess.call(
+                exit_code = managed_call(
                     [binary],
                     env=account_environment(account),
                     cwd=os.getcwd(),
-                    pass_fds=(login_lock_fd, transition_fd),
+                    pass_fds=() if IS_WINDOWS else (login_lock_fd, transition_fd),
                 )
             except BaseException as exc:
                 with contextlib.suppress(Exception):
@@ -6307,7 +6534,7 @@ def binary_version(binary: str) -> dict[str, Any]:
     if not binary_exists(normalized):
         return {"binary": normalized, "available": False}
     try:
-        result = subprocess.run(
+        result = managed_run(
             [normalized, "--version"],
             text=True,
             stdout=subprocess.PIPE,
@@ -6478,6 +6705,32 @@ def cmd_concurrency_disable(args: argparse.Namespace) -> int:
     return 0
 
 
+def platform_capabilities() -> dict[str, Any]:
+    """Report implementation availability separately from host acceptance.
+
+    A runtime cannot infer a CI run or real provider acceptance from imports.
+    Evidence for this prerelease remains in the operator's validation report.
+    """
+    if not IS_WINDOWS:
+        return {
+            "task_lifecycle": {"available": True, "implementation": "posix"},
+            "credential_profiles": {"available": sys.platform == "darwin"},
+            "shared_reads": {"available": sys.platform == "darwin", "requires_user_probe": True},
+        }
+    reason = "windows_shared_behavior_unverified"
+    return {
+        "task_lifecycle": {"available": True, "implementation": "windows-job-objects",
+                           "validation": "pending-native-acceptance"},
+        "credential_storage": {"available": True, "implementation": "windows-credential-manager",
+                               "validation": "native-validation-required"},
+        "credential_profiles": {"available": True, "implementation": "windows-credential-manager-vault",
+                                "requires_verified_agy_binary": True, "requires_ordinary_desktop_user": True,
+                                "validation": "native-validation-required"},
+        "shared_reads": {"available": False, "reason": reason, "requires_user_probe": True},
+        "desktop_integration": {"validation": "pending-native-acceptance"},
+    }
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     root = ensure_runtime()
     runtime_config = config()
@@ -6501,6 +6754,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     routing_account = find_account_by_id(state, str(routing_id)) if routing_id else None
     payload: dict[str, Any] = {
         "version": VERSION,
+        "platform": {"system": sys.platform, "os_build": platform_process.os_build(),
+                     "architecture": __import__("platform").machine()},
+        "capabilities": platform_capabilities(),
         "runtime_root": str(root),
         "runtime_writable": os.access(root, os.W_OK),
         "config": {
@@ -6516,16 +6772,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "credentials_stored": any(
                 item.get("credential_state") == "ready" for item in keychain_profiles
             ),
-            "credential_storage": "macos-keychain-only",
+            "credential_storage": "windows-credential-manager" if IS_WINDOWS else "macos-keychain-only",
             "plaintext_credentials_stored": False,
-            "agy_multi_account_mode": "serialized-keychain-switch",
+            "agy_multi_account_mode": "unavailable" if IS_WINDOWS else "serialized-keychain-switch",
             "agy_multi_account_mode_official": False,
             "active_account": active_account and active_account.get("name"),
             "routing_account": routing_account and routing_account.get("name"),
             "login_recovery_pending": login_transaction_path().exists(),
             "global_auth_lock": str(auth_lock_path()),
             "antigravity_isolated_profiles_supported": False,
-            "antigravity_serialized_keychain_profiles_supported": True,
+            "antigravity_serialized_keychain_profiles_supported": not IS_WINDOWS,
             "gemini_isolated_profiles_supported": True,
             "read_mode_enforcement": "provider plan/approval-mode plus provider sandbox",
             "fine_grained_tool_deny_supported": False,
@@ -6547,7 +6803,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"Default account: {payload['default_account']}")
         for name, item in providers.items():
             print(f"{name}: {item.get('version') if item.get('available') else 'unavailable'} — {item['binary']}")
-        print("Credentials: opaque snapshots stored only in macOS Keychain; no plaintext credential files")
+        print(f"Credential backend: {payload['security']['credential_storage']}; no plaintext credential snapshots")
+        if IS_WINDOWS:
+            print("Windows native support is experimental; provider and Desktop acceptance remain pending.")
         if args.deep and payload.get("quota_probe"):
             print_quota(payload["quota_probe"] | {"account": payload["quota_probe"].get("account", args.account or "auto"), "provider": "agy"})
     return 0 if ready and payload["runtime_writable"] else 1
@@ -6659,8 +6917,8 @@ def build_parser() -> argparse.ArgumentParser:
     account_add.add_argument("--provider", choices=("agy", "gemini"), required=True)
     account_add.add_argument("--isolated", action="store_true")
     account_add.add_argument(
-        "--keychain-profile",
-        action="store_true",
+        "--keychain-profile", "--credential-profile",
+        dest="keychain_profile", action="store_true",
         help="Use serialized macOS Keychain compatibility mode for Antigravity",
     )
     account_add.add_argument("--profile-root")
@@ -6741,13 +6999,26 @@ def main(argv: list[str] | None = None) -> int:
     # Every state/log file created by this process or an inherited provider
     # process is private to the current user, independent of the caller's umask.
     os.umask(0o077)
+    if IS_WINDOWS:
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8", errors="replace")
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if IS_WINDOWS and args.command in {"account", "quota", "doctor"}:
+            # These commands hold authentication locks while invoking a CLI.
+            # Windows byte locks are process-owned, unlike inherited flock.
+            # A controller Job kills its children on controller death. Workers
+            # use their separate bootstrap Job so `start` can exit normally.
+            platform_process.enter_job()
         return int(args.func(args))
     except BridgeError as exc:
         print(f"gemini-subagent: {exc}", file=sys.stderr)
         return exc.exit_code
+    except OSError as exc:
+        print(f"gemini-subagent: OS operation failed ({type(exc).__name__}); check private file ownership, executable and process permissions.", file=sys.stderr)
+        return 1
     except KeyboardInterrupt:
         print("gemini-subagent: interrupted", file=sys.stderr)
         return 130

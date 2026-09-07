@@ -30,7 +30,7 @@ import contextlib
 import dataclasses
 import datetime as dt
 import errno
-import fcntl
+import platform_fs as fcntl
 import hashlib
 import hmac
 import json
@@ -38,6 +38,7 @@ import os
 import platform
 import re
 import signal
+from platform_process import KILL_SIGNAL
 import stat
 import subprocess
 import sys
@@ -599,7 +600,7 @@ def process_group_alive(pgid: int) -> bool:
 
 
 def terminate_group(proc: subprocess.Popen[bytes], *, crash: bool = False) -> None:
-    selected_signal = signal.SIGKILL if crash else signal.SIGTERM
+    selected_signal = KILL_SIGNAL if crash else signal.SIGTERM
     with contextlib.suppress(ProcessLookupError):
         os.killpg(proc.pid, selected_signal)
     deadline = time.monotonic() + (0.2 if crash else 2.0)
@@ -609,7 +610,7 @@ def terminate_group(proc: subprocess.Popen[bytes], *, crash: bool = False) -> No
         time.sleep(0.02)
     if proc.poll() is None or process_group_alive(proc.pid):
         with contextlib.suppress(ProcessLookupError):
-            os.killpg(proc.pid, signal.SIGKILL)
+            os.killpg(proc.pid, KILL_SIGNAL)
     with contextlib.suppress(subprocess.TimeoutExpired):
         proc.wait(timeout=3)
 
@@ -1123,7 +1124,7 @@ def required_checks(evidence: dict[str, Any]) -> dict[str, bool]:
         "controlled_exit_order": parallel.get("exit_order_observed") is True,
         "expected_provider_crash": (
             len(crash_processes) == 1
-            and crash_processes[0].get("exit_code") == -signal.SIGKILL
+            and crash_processes[0].get("exit_code") == -KILL_SIGNAL
             and parallel.get("crash_process_group_stopped") is True
         ),
         "surviving_providers_clean": (
@@ -1447,6 +1448,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if os.name == "nt":
+        print(json.dumps({"schema_version": SCHEMA_VERSION,
+                          "probe": "agy_same_account_concurrency", "outcome": "UNAVAILABLE",
+                          "platform": "win32", "os_build": platform.version(),
+                          "real_provider_invoked": False, "parallel_enablement_allowed": False,
+                          "reasons": ["windows_shared_behavior_unverified"],
+                          "next_step": "Verify Windows credential binding and implement a native behavioral probe; macOS evidence cannot be reused."}, indent=2))
+        return 0 if args.command in {None, "plan"} else 2
     if args.command in {None, "plan"}:
         print(json.dumps(build_plan(), ensure_ascii=False, indent=2, sort_keys=True))
         return 0

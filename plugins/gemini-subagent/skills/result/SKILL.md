@@ -5,11 +5,20 @@ description: Retrieve and interpret the durable final output of a Gemini Subagen
 
 # Gemini Subagent Result
 
-Use `<plugin-root>/scripts/gemini_subagent.py`, where this file is
-`<plugin-root>/skills/<skill-name>/SKILL.md`. Resolve the installed file path;
-`Path(skill_file).resolve().parents[2]` is the plugin root.
+Use `<plugin-root>/scripts/gemini_subagent.py`, resolved from the actual installed
+skill or Codex installation metadata. From this file,
+`Path(skill_file).resolve().parents[2]` is the plugin root. Use `python3` on
+macOS or the verified native Python 3.10+ x64 interpreter on Windows; never
+assume a cache path, shebang, or `.py` association.
 
-Run the exact executable outside the workspace sandbox:
+For Windows invocation, permissions, session ownership, and current limitations,
+read the bundled [platform reference](../../references/platforms.md) before
+running the first command. Windows remains experimental. Named agy accounts use
+the version-bounded native credential adapter described there; shared reads stay
+disabled. Keep normal narrowly scoped host approval and report the remaining
+live acceptance gaps separately.
+
+Commands:
 
 - `result <job-id> --json` returns state, response, provider session ID, usage,
   exit code, and error metadata.

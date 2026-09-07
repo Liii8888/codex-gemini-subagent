@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pure schema helpers for Gemini Subagent account metadata.
 
-This module deliberately has no filesystem, process, or Keychain access.  It
+This module deliberately has no filesystem, process, or secure-store access. It
 only migrates and validates ``accounts.json`` data.  Provider credentials must
 never be represented in this schema; migration removes known credential-bearing
 fields and validation rejects them if they reappear.
@@ -20,6 +20,10 @@ from typing import Any
 SCHEMA_VERSION = 2
 ACCOUNT_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
 KEYCHAIN_PROFILE_MODE = "macos-keychain-vault"
+WINDOWS_PROFILE_MODE = "windows-credential-manager-vault"
+# Metadata describes a profile's origin, not the current host's capabilities.
+# Accepting a mode here never enables its provider adapter or proves readiness.
+MANAGED_AGY_PROFILE_MODES = frozenset({KEYCHAIN_PROFILE_MODE, WINDOWS_PROFILE_MODE})
 UNMANAGED_AGY_PROFILE_MODE = "system-unmanaged"
 DECLARED_IDENTITY_SOURCE = "user-declared"
 
@@ -193,13 +197,13 @@ def _next_unique_id(
     raise AccountSchemaError("id_factory repeatedly returned an existing account id.")
 
 
-def _keychain_ids(accounts: Mapping[str, Any]) -> list[str]:
+def _managed_agy_ids(accounts: Mapping[str, Any]) -> list[str]:
     return [
         account["id"]
         for account in accounts.values()
         if isinstance(account, Mapping)
         and account.get("provider") == "agy"
-        and account.get("profile_mode") == KEYCHAIN_PROFILE_MODE
+        and account.get("profile_mode") in MANAGED_AGY_PROFILE_MODES
     ]
 
 
@@ -269,7 +273,7 @@ def migrate_accounts_state(
             account["profile_mode"] = UNMANAGED_AGY_PROFILE_MODE
             account["credential_state"] = "uncaptured"
             account["credential_revision"] = 0
-        elif provider == "agy" and mode == KEYCHAIN_PROFILE_MODE:
+        elif provider == "agy" and mode in MANAGED_AGY_PROFILE_MODES:
             account.setdefault("credential_state", "uncaptured")
             account.setdefault("credential_revision", 0)
         elif provider == "gemini":
@@ -285,8 +289,8 @@ def migrate_accounts_state(
     if not isinstance(sticky, bool):
         raise AccountSchemaError("routing.sticky_until_exhausted must be boolean.")
 
-    keychain_ids = _keychain_ids(accounts)
-    eligible = set(keychain_ids)
+    managed_ids = _managed_agy_ids(accounts)
+    eligible = set(managed_ids)
     name_to_id = {name: account["id"] for name, account in accounts.items()}
     order: list[str] = []
     raw_order = routing.get("agy_order", [])
@@ -295,7 +299,7 @@ def migrate_accounts_state(
             account_id = name_to_id.get(selector, selector)
             if account_id in eligible and account_id not in order:
                 order.append(account_id)
-    for account_id in keychain_ids:
+    for account_id in managed_ids:
         if account_id not in order:
             order.append(account_id)
     migrated["routing"] = {
@@ -348,7 +352,7 @@ def validate_accounts_state(state: Mapping[str, Any]) -> None:
         provider = account.get("provider")
         mode = account.get("profile_mode")
         if provider == "agy":
-            if mode not in {UNMANAGED_AGY_PROFILE_MODE, KEYCHAIN_PROFILE_MODE}:
+            if mode not in {UNMANAGED_AGY_PROFILE_MODE, *MANAGED_AGY_PROFILE_MODES}:
                 raise AccountSchemaError(
                     f"Antigravity account {name!r} has unsupported profile_mode {mode!r}."
                 )
@@ -412,10 +416,10 @@ def validate_accounts_state(state: Mapping[str, Any]) -> None:
                     f"Account {name!r} readiness verification metadata must include "
                     "readiness_verified_revision and readiness_verified_at."
                 )
-            if provider != "agy" or mode != KEYCHAIN_PROFILE_MODE:
+            if provider != "agy" or mode not in MANAGED_AGY_PROFILE_MODES:
                 raise AccountSchemaError(
                     f"Account {name!r} readiness verification metadata is only "
-                    "supported for Keychain Antigravity profiles."
+                    "supported for managed Antigravity profiles."
                 )
             readiness_revision = account["readiness_verified_revision"]
             if (
@@ -457,10 +461,10 @@ def validate_accounts_state(state: Mapping[str, Any]) -> None:
         raise AccountSchemaError("routing.agy_order must be a list of account ids.")
     if len(order) != len(set(order)):
         raise AccountSchemaError("routing.agy_order contains duplicate account ids.")
-    expected_ids = _keychain_ids(accounts)
+    expected_ids = _managed_agy_ids(accounts)
     if set(order) != set(expected_ids):
         raise AccountSchemaError(
-            "routing.agy_order must contain every Keychain Antigravity profile id exactly once."
+            "routing.agy_order must contain every managed Antigravity profile id exactly once."
         )
 
 

@@ -39,6 +39,7 @@ _FIELDS = frozenset(
         "target_backup_uuid",
         "readiness_policy",
         "created_at",
+        "windows_context",
     }
 )
 _FORBIDDEN_FIELD_PARTS = ("token", "credential", "password", "secret")
@@ -77,6 +78,7 @@ def new_login_journal(
     target_backup_uuid: str | None = None,
     readiness_policy: str | None = STRICT_READINESS_POLICY,
     created_at: str | None = None,
+    windows_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build and validate a new journal in the initial ``prepared`` phase."""
 
@@ -94,6 +96,8 @@ def new_login_journal(
         "readiness_policy": readiness_policy,
         "created_at": created_at or utc_now_iso(),
     }
+    if windows_context is not None:
+        record["windows_context"] = windows_context
     return validate_login_journal(record)
 
 
@@ -124,7 +128,7 @@ def validate_login_journal(record: Any) -> dict[str, Any]:
     # Legacy v1 journals predate strict readiness. They remain recoverable but
     # normalize to a null policy so recovery cannot grant a new readiness
     # proof that the old flow never performed.
-    missing = (_FIELDS - {"readiness_policy"}) - keys
+    missing = (_FIELDS - {"readiness_policy", "windows_context"}) - keys
     if unknown:
         names = ", ".join(sorted(str(key) for key in unknown))
         raise LoginJournalError(f"Unknown login journal field(s): {names}.")
@@ -193,6 +197,20 @@ def validate_login_journal(record: Any) -> dict[str, Any]:
         "readiness_policy": readiness_policy,
         "created_at": created_at,
     }
+    if "windows_context" in record:
+        from platform_process import same_context
+
+        context = record["windows_context"]
+        if (
+            not isinstance(context, dict)
+            or set(context) != {"user_sid", "session_id", "logon_id", "elevated", "integrity_level"}
+            or not same_context(context, context)
+            or context["session_id"] == 0
+            or context["elevated"] is not False
+            or context["integrity_level"] != 8192
+        ):
+            raise LoginJournalError("Invalid Windows login journal execution context.")
+        normalized["windows_context"] = dict(context)
     return normalized
 
 
@@ -200,6 +218,8 @@ def write_login_journal(path: Path, record: dict[str, Any]) -> dict[str, Any]:
     """Atomically create or advance the journal at the fixed filename."""
 
     normalized = validate_login_journal(record)
+    if os.name == "nt":
+        return _windows_write(path, normalized)
     destination, dir_fd = _open_auth_directory(path, create=True)
     temp_name: str | None = None
     try:
@@ -246,6 +266,8 @@ def write_login_journal(path: Path, record: dict[str, Any]) -> dict[str, Any]:
 def load_login_journal(path: Path) -> dict[str, Any] | None:
     """Load and validate the journal, returning ``None`` when it is absent."""
 
+    if os.name == "nt":
+        return _windows_load(path)
     destination, dir_fd = _open_auth_directory(path, create=False)
     try:
         return _load_from_directory(dir_fd, destination.name)
@@ -256,6 +278,11 @@ def load_login_journal(path: Path) -> dict[str, Any] | None:
 def remove_login_journal(path: Path) -> bool:
     """Remove a validated regular journal file and fsync its directory."""
 
+    if os.name == "nt":
+        if _windows_load(path) is None:
+            return False
+        Path(path).unlink()
+        return True
     destination, dir_fd = _open_auth_directory(path, create=False)
     try:
         current = _load_from_directory(dir_fd, destination.name)
@@ -403,7 +430,7 @@ def _object_without_duplicates(pairs: Iterable[tuple[str, Any]]) -> dict[str, An
 
 def _validate_rewrite(existing: dict[str, Any], updated: dict[str, Any]) -> None:
     for key in _FIELDS - {"phase"}:
-        if existing[key] != updated[key]:
+        if existing.get(key) != updated.get(key):
             raise LoginJournalError(f"Login journal field is immutable after prepare: {key}.")
     old_index = PHASES.index(existing["phase"])
     new_index = PHASES.index(updated["phase"])
@@ -411,3 +438,57 @@ def _validate_rewrite(existing: dict[str, Any], updated: dict[str, Any]) -> None
         raise LoginJournalError(
             f"Invalid login journal transition: {existing['phase']} -> {updated['phase']}."
         )
+
+
+def _windows_load(path: Path) -> dict[str, Any] | None:
+    from platform_fs import file_is_private
+    destination = _validated_destination(path)
+    if not file_is_private(destination.parent):
+        raise LoginJournalError("The auth root must be a private Windows directory without reparse points.")
+    if not destination.exists():
+        return None
+    if not file_is_private(destination):
+        raise LoginJournalError("The login journal must be a private Windows file without reparse points.")
+    before = destination.stat()
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or not 0 < before.st_size <= MAX_JOURNAL_BYTES:
+        raise LoginJournalError("The login journal must be a bounded single regular file.")
+    with destination.open("rb") as handle:
+        opened = os.fstat(handle.fileno())
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise LoginJournalError("The login journal changed while opening.")
+        raw = handle.read(MAX_JOURNAL_BYTES + 1)
+    if len(raw) > MAX_JOURNAL_BYTES:
+        raise LoginJournalError("The login journal exceeds the size limit.")
+    try:
+        return validate_login_journal(json.loads(raw.decode("utf-8"), object_pairs_hook=_object_without_duplicates))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise LoginJournalError("The login journal is not valid UTF-8 JSON.") from exc
+
+
+def _windows_write(path: Path, normalized: dict[str, Any]) -> dict[str, Any]:
+    from platform_fs import atomic_replace, private_mkdir, secure_chmod
+    destination = _validated_destination(path)
+    private_mkdir(destination.parent)
+    previous = _windows_load(destination)
+    if previous is None:
+        if normalized["phase"] != "prepared":
+            raise LoginJournalError("A new login journal must start in the prepared phase.")
+    else:
+        _validate_rewrite(previous, normalized)
+    payload = json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    if len(payload) > MAX_JOURNAL_BYTES:
+        raise LoginJournalError("The login journal exceeds the size limit.")
+    fd, name = tempfile.mkstemp(prefix=".login-transaction.", dir=destination.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        secure_chmod(Path(name), 0o600)
+        atomic_replace(Path(name), destination)
+    finally:
+        try:
+            Path(name).unlink()
+        except FileNotFoundError:
+            pass
+    return normalized
